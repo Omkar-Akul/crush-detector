@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps, no-unused-vars */
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
@@ -15,6 +16,7 @@ function App() {
     const [currentUser, setCurrentUser] = useState(null);
     const [currentPage, setCurrentPage] = useState('login');
     const [token, setToken] = useState(localStorage.getItem('accessToken'));
+    const [appLoading, setAppLoading] = useState(!!localStorage.getItem('accessToken'));
 
     useEffect(() => {
         if (token) {
@@ -23,6 +25,7 @@ function App() {
     }, [token]);
 
     const fetchCurrentUser = async () => {
+        setAppLoading(true);
         try {
             const response = await fetch(`${API_URL}/api/users/me`, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -30,7 +33,11 @@ function App() {
             const data = await response.json();
             if (data.success) {
                 setCurrentUser(data.user);
-                setCurrentPage('dashboard');
+                if (!data.user.is_email_verified) {
+                    setCurrentPage('verify-email');
+                } else {
+                    setCurrentPage('dashboard');
+                }
             } else {
                 localStorage.removeItem('accessToken');
                 setToken(null);
@@ -43,6 +50,8 @@ function App() {
             setToken(null);
             setCurrentUser(null);
             setCurrentPage('login');
+        } finally {
+            setAppLoading(false);
         }
     };
 
@@ -58,7 +67,7 @@ function App() {
             <header className="header">
                 <div className="header-content">
                     <h1 className="logo">💘 CrushDetector</h1>
-                    {currentUser && (
+                    {currentUser && currentUser.is_email_verified && (
                         <div className="user-section">
                             <span className="welcome-text">Welcome, {currentUser.display_name}</span>
                             <button className="logout-btn" onClick={handleLogout}>Logout</button>
@@ -68,15 +77,23 @@ function App() {
             </header>
 
             <main className="main-content">
-                {!token ? (
+                {appLoading ? (
+                    <div className="loading-screen"><div className="loading-spinner">💘</div><p>Loading...</p></div>
+                ) : !token ? (
                     currentPage === 'login' ? (
-                        <LoginPage setToken={setToken} onSwitchPage={() => setCurrentPage('register')} />
+                        <LoginPage setToken={setToken} setCurrentUser={setCurrentUser} setCurrentPage={setCurrentPage} onSwitchPage={() => setCurrentPage('register')} />
                     ) : (
-                        <RegisterPage setToken={setToken} onSwitchPage={() => setCurrentPage('login')} />
+                        <RegisterPage setToken={setToken} setCurrentUser={setCurrentUser} setCurrentPage={setCurrentPage} onSwitchPage={() => setCurrentPage('login')} />
                     )
+                ) : currentPage === 'verify-email' ? (
+                    <OTPVerificationPage
+                        token={token}
+                        email={currentUser?.email || ''}
+                        onVerified={() => fetchCurrentUser()}
+                    />
                 ) : (
-                    <DashboardPage 
-                        user={currentUser} 
+                    <DashboardPage
+                        user={currentUser}
                         token={token}
                         setCurrentPage={setCurrentPage}
                         currentPage={currentPage}
@@ -88,10 +105,124 @@ function App() {
 }
 
 // ============================================================================
+// OTP VERIFICATION PAGE
+// ============================================================================
+
+function OTPVerificationPage({ token, email, onVerified }) {
+    const [otp, setOtp] = useState('');
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [resendCooldown, setResendCooldown] = useState(0);
+
+    useEffect(() => {
+        if (resendCooldown > 0) {
+            const timer = setTimeout(() => setResendCooldown(c => c - 1), 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [resendCooldown]);
+
+    const handleVerify = async (e) => {
+        e.preventDefault();
+        if (otp.length !== 6) { setError('Please enter the 6-digit code'); return; }
+        setLoading(true);
+        setError('');
+        try {
+            const response = await fetch(`${API_URL}/api/auth/verify-email`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ otp })
+            });
+            const data = await response.json();
+            if (data.success) {
+                setSuccess('✅ Email verified! Taking you in...');
+                setTimeout(() => onVerified(), 1500);
+            } else {
+                setError(data.error || 'Invalid code. Try again.');
+            }
+        } catch {
+            setError('Connection error. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleResend = async () => {
+        setError('');
+        try {
+            const response = await fetch(`${API_URL}/api/auth/resend-otp`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (data.success) {
+                setSuccess('📧 New code sent! Check your email.');
+                setResendCooldown(60);
+            } else {
+                setError(data.error || 'Could not resend code.');
+            }
+        } catch {
+            setError('Connection error.');
+        }
+    };
+
+    return (
+        <div className="auth-container">
+            <div className="auth-card">
+                <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                    <div style={{ fontSize: '48px' }}>📧</div>
+                    <h2>Verify your email</h2>
+                    <p className="subtitle">We sent a 6-digit code to<br /><strong>{email}</strong></p>
+                </div>
+
+                {error && <div className="error-message">{error}</div>}
+                {success && <div className="success-message">{success}</div>}
+
+                <form onSubmit={handleVerify}>
+                    <div className="form-group">
+                        <label>Verification Code</label>
+                        <input
+                            type="text"
+                            value={otp}
+                            onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            placeholder="Enter 6-digit code"
+                            maxLength={6}
+                            style={{ fontSize: '24px', letterSpacing: '8px', textAlign: 'center' }}
+                            autoFocus
+                            required
+                        />
+                    </div>
+                    <button type="submit" className="btn btn-primary" disabled={loading}>
+                        {loading ? 'Verifying...' : '✅ Verify Account'}
+                    </button>
+                </form>
+
+                <p className="switch-text" style={{ marginTop: '16px' }}>
+                    Didn't receive it?{' '}
+                    {resendCooldown > 0 ? (
+                        <span style={{ color: '#999' }}>Resend in {resendCooldown}s</span>
+                    ) : (
+                        <button onClick={handleResend} className="link-btn">Resend code</button>
+                    )}
+                </p>
+                <p style={{ fontSize: '12px', color: '#999', textAlign: 'center', marginTop: '8px' }}>
+                    💡 In development mode, check the backend console for your OTP.
+                </p>
+            </div>
+            <div className="auth-decoration">
+                <div className="floating-heart">📧</div>
+                <div className="floating-heart">🔐</div>
+                <div className="floating-heart">✅</div>
+            </div>
+        </div>
+    );
+}
+
+// ============================================================================
 // LOGIN PAGE
 // ============================================================================
 
-function LoginPage({ setToken, onSwitchPage }) {
+function LoginPage({ setToken, setCurrentUser, setCurrentPage, onSwitchPage }) {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -114,7 +245,13 @@ function LoginPage({ setToken, onSwitchPage }) {
             if (data.success) {
                 localStorage.setItem('accessToken', data.tokens.accessToken);
                 localStorage.setItem('refreshToken', data.tokens.refreshToken);
+                setCurrentUser(data.user);
                 setToken(data.tokens.accessToken);
+                if (data.requiresVerification) {
+                    setCurrentPage('verify-email');
+                } else {
+                    setCurrentPage('dashboard');
+                }
             } else {
                 setError(data.error || 'Login failed');
             }
@@ -180,7 +317,7 @@ function LoginPage({ setToken, onSwitchPage }) {
 // REGISTER PAGE
 // ============================================================================
 
-function RegisterPage({ setToken, onSwitchPage }) {
+function RegisterPage({ setToken, setCurrentUser, setCurrentPage, onSwitchPage }) {
     const [formData, setFormData] = useState({
         username: '',
         email: '',
@@ -192,10 +329,7 @@ function RegisterPage({ setToken, onSwitchPage }) {
     const [loading, setLoading] = useState(false);
 
     const handleChange = (e) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value
-        });
+        setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
     const handleRegister = async (e) => {
@@ -221,7 +355,9 @@ function RegisterPage({ setToken, onSwitchPage }) {
             if (data.success) {
                 localStorage.setItem('accessToken', data.tokens.accessToken);
                 localStorage.setItem('refreshToken', data.tokens.refreshToken);
+                setCurrentUser(data.user);
                 setToken(data.tokens.accessToken);
+                setCurrentPage('verify-email');
             } else {
                 setError(data.error || 'Registration failed');
             }
@@ -853,6 +989,7 @@ function UserCard({ user, token }) {
                 <p className="bio-preview">{user.bio}</p>
                 <div className="crush-indicators">
                     {user.you_have_crush_on_them && <span className="indicator">💕 You like them</span>}
+                    {!user.is_email_verified && <span className="indicator unverified" style={{ background: '#fee2e2', color: '#991b1b' }}>⚠️ Unverified</span>}
                 </div>
             </div>
             {!user.you_have_crush_on_them && (

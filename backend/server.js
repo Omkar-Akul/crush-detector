@@ -6,12 +6,86 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 const db = require('./config/database');
 
 // Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// ============================================================================
+// EMAIL + OTP UTILITIES
+// ============================================================================
+
+const emailTransporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    },
+    tls: {
+        rejectUnauthorized: false
+    }
+});
+
+const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+const sendOTPEmail = async (email, otp, displayName) => {
+    if (!process.env.EMAIL_USER) {
+        // Dev mode: log OTP to console instead of sending email
+        console.log(`\n🔑 [DEV MODE] OTP for ${email}: ${otp}\n`);
+        return;
+    }
+    const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev';
+    await emailTransporter.sendMail({
+        from: `"CrushDetector 💘" <${fromEmail}>`,
+        to: email,
+        subject: 'Verify your CrushDetector account',
+        html: `
+            <div style="font-family:Arial,sans-serif;max-width:500px;margin:auto;background:#1a1a2e;color:#fff;border-radius:12px;padding:32px">
+                <h1 style="color:#FF6B9D;margin:0 0 8px">💘 CrushDetector</h1>
+                <h2 style="margin:0 0 24px;color:#fff">Verify your email</h2>
+                <p style="color:#ccc">Hi ${displayName}, welcome! Use this code to verify your account:</p>
+                <div style="background:#FF6B9D;border-radius:8px;padding:20px;text-align:center;margin:24px 0">
+                    <span style="font-size:36px;font-weight:bold;letter-spacing:8px;color:#fff">${otp}</span>
+                </div>
+                <p style="color:#999;font-size:13px">This code expires in 15 minutes. Do not share it with anyone.</p>
+            </div>
+        `
+    });
+};
+
+// Auto-create security tables on startup
+(async () => {
+    try {
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS email_otps (
+                id SERIAL PRIMARY KEY,
+                user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                otp_code VARCHAR(6) NOT NULL,
+                expires_at TIMESTAMP NOT NULL,
+                used BOOLEAN DEFAULT false,
+                attempts INT DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        console.log('✓ Security tables ready');
+    } catch (err) {
+        console.error('Warning: Could not create security tables:', err.message);
+    }
+})();
+
+// IP registration limiter (max 3 accounts per IP per 7 days)
+// IP registration limiter (max 3 accounts per IP per 7 days - disabled in dev)
+const ipRegistrationLimiter = rateLimit({
+    windowMs: 7 * 24 * 60 * 60 * 1000, // 7 days
+    max: process.env.NODE_ENV === 'development' ? 999999 : 3,
+    message: { success: false, error: 'Too many accounts created from this IP. Try again later.', code: 'IP_LIMIT_EXCEEDED' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
 
 // ============================================================================
 // MIDDLEWARE
@@ -143,23 +217,22 @@ const generateRefreshToken = (user) => {
 };
 
 // POST /api/auth/register
-app.post('/api/auth/register', authLimiter, async (req, res) => {
+app.post('/api/auth/register', authLimiter, ipRegistrationLimiter, async (req, res) => {
     try {
         const { username, email, password, display_name, date_of_birth } = req.body;
         
         // Validation
         if (!username || !email || !password || !display_name) {
-            return res.status(400).json({
-                success: false,
-                error: 'Missing required fields'
-            });
+            return res.status(400).json({ success: false, error: 'Missing required fields' });
+        }
+        if (password.length < 8) {
+            return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
         }
         
-        if (password.length < 8) {
-            return res.status(400).json({
-                success: false,
-                error: 'Password must be at least 8 characters'
-            });
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({ success: false, error: 'Invalid email address' });
         }
         
         // Check if user exists
@@ -167,23 +240,18 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
             'SELECT id FROM users WHERE username = $1 OR email = $2',
             [username, email]
         );
-        
         if (existingUser.rows.length > 0) {
-            return res.status(409).json({
-                success: false,
-                error: 'Username or email already exists',
-                code: 'DUPLICATE_ENTRY'
-            });
+            return res.status(409).json({ success: false, error: 'Username or email already exists', code: 'DUPLICATE_ENTRY' });
         }
         
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
         
-        // Create user
+        // Create user with is_email_verified = FALSE (requires OTP)
         const result = await db.query(
             `INSERT INTO users 
             (username, email, password_hash, display_name, date_of_birth, status, is_email_verified)
-            VALUES ($1, $2, $3, $4, $5, 'active', true)
+            VALUES ($1, $2, $3, $4, $5, 'active', false)
             RETURNING id, username, email, display_name`,
             [username, email, hashedPassword, display_name, date_of_birth]
         );
@@ -194,34 +262,34 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
         const accessToken = generateAccessToken(user);
         const refreshToken = generateRefreshToken(user);
         
-        // Store refresh token in sessions
+        // Store session
         await db.query(
             `INSERT INTO sessions (user_id, token, ip_address, user_agent, expires_at)
             VALUES ($1, $2, $3, $4, NOW() + INTERVAL '30 days')`,
             [user.id, refreshToken, req.ip, req.get('user-agent')]
         );
         
+        // Generate and store OTP
+        const otp = generateOTP();
+        await db.query(
+            `INSERT INTO email_otps (user_id, otp_code, expires_at)
+             VALUES ($1, $2, NOW() + INTERVAL '15 minutes')`,
+            [user.id, otp]
+        );
+        
+        // Send OTP email (logs to console in dev if EMAIL_USER not set)
+        await sendOTPEmail(email, otp, display_name);
+        
         res.status(201).json({
             success: true,
-            message: 'User registered successfully',
-            user: {
-                id: user.id,
-                username: user.username,
-                email: user.email,
-                display_name: user.display_name
-            },
-            tokens: {
-                accessToken,
-                refreshToken
-            }
+            message: 'Account created! Please check your email for a verification code.',
+            requiresVerification: true,
+            user: { id: user.id, username: user.username, email: user.email, display_name: user.display_name, is_email_verified: false },
+            tokens: { accessToken, refreshToken }
         });
     } catch (error) {
         console.error('Registration error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Internal server error',
-            code: 'INTERNAL_ERROR'
-        });
+        res.status(500).json({ success: false, error: 'Internal server error', code: 'INTERNAL_ERROR' });
     }
 });
 
@@ -231,23 +299,17 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
         const { username, password } = req.body;
         
         if (!username || !password) {
-            return res.status(400).json({
-                success: false,
-                error: 'Username and password required'
-            });
+            return res.status(400).json({ success: false, error: 'Username and password required' });
         }
         
         // Find user
         const result = await db.query(
-            'SELECT id, username, email, password_hash, display_name, profile_photo_url FROM users WHERE username = $1 AND status = $2',
+            'SELECT id, username, email, password_hash, display_name, profile_photo_url, is_email_verified FROM users WHERE username = $1 AND status = $2',
             [username, 'active']
         );
         
         if (result.rows.length === 0) {
-            return res.status(401).json({
-                success: false,
-                error: 'Invalid username or password'
-            });
+            return res.status(401).json({ success: false, error: 'Invalid username or password' });
         }
         
         const user = result.rows[0];
@@ -255,17 +317,11 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
         // Verify password
         const validPassword = await bcrypt.compare(password, user.password_hash);
         if (!validPassword) {
-            return res.status(401).json({
-                success: false,
-                error: 'Invalid username or password'
-            });
+            return res.status(401).json({ success: false, error: 'Invalid username or password' });
         }
         
         // Update last login
-        await db.query(
-            'UPDATE users SET last_login = NOW() WHERE id = $1',
-            [user.id]
-        );
+        await db.query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]);
         
         // Generate tokens
         const accessToken = generateAccessToken(user);
@@ -280,26 +336,82 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
         
         res.json({
             success: true,
+            requiresVerification: !user.is_email_verified,
             user: {
-                id: user.id,
-                username: user.username,
-                email: user.email,
-                display_name: user.display_name,
-                profile_photo_url: user.profile_photo_url
+                id: user.id, username: user.username, email: user.email,
+                display_name: user.display_name, profile_photo_url: user.profile_photo_url,
+                is_email_verified: user.is_email_verified
             },
-            tokens: {
-                accessToken,
-                refreshToken
-            }
+            tokens: { accessToken, refreshToken }
         });
     } catch (error) {
         console.error('Login error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Internal server error'
-        });
+        res.status(500).json({ success: false, error: 'Internal server error' });
     }
 });
+
+// POST /api/auth/verify-email
+app.post('/api/auth/verify-email', authenticateToken, async (req, res) => {
+    try {
+        const { otp } = req.body;
+        const userId = req.user.userId;
+        
+        if (!otp) return res.status(400).json({ success: false, error: 'OTP code required' });
+        
+        // Find valid OTP
+        const otpResult = await db.query(
+            `SELECT id, attempts FROM email_otps 
+             WHERE user_id = $1 AND otp_code = $2 AND expires_at > NOW() AND used = false
+             ORDER BY created_at DESC LIMIT 1`,
+            [userId, otp.toString().trim()]
+        );
+        
+        if (otpResult.rows.length === 0) {
+            // Increment attempts on wrong OTP
+            await db.query(
+                `UPDATE email_otps SET attempts = attempts + 1 
+                 WHERE user_id = $1 AND used = false AND expires_at > NOW()`,
+                [userId]
+            );
+            return res.status(400).json({ success: false, error: 'Invalid or expired code. Please try again.', code: 'INVALID_OTP' });
+        }
+        
+        // Mark OTP as used
+        await db.query('UPDATE email_otps SET used = true WHERE id = $1', [otpResult.rows[0].id]);
+        
+        // Verify user's email
+        await db.query('UPDATE users SET is_email_verified = true WHERE id = $1', [userId]);
+        
+        res.json({ success: true, message: 'Email verified! Welcome to CrushDetector 💘' });
+    } catch (error) {
+        console.error('OTP verification error:', error);
+        res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+});
+
+// POST /api/auth/resend-otp
+const resendOtpLimiter = rateLimit({ windowMs: 60 * 1000, max: 1, message: { success: false, error: 'Please wait 1 minute before requesting another code.' } });
+app.post('/api/auth/resend-otp', authenticateToken, resendOtpLimiter, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const userResult = await db.query('SELECT email, display_name, is_email_verified FROM users WHERE id = $1', [userId]);
+        
+        if (!userResult.rows.length) return res.status(404).json({ success: false, error: 'User not found' });
+        if (userResult.rows[0].is_email_verified) return res.status(400).json({ success: false, error: 'Email already verified' });
+        
+        const otp = generateOTP();
+        await db.query(
+            `INSERT INTO email_otps (user_id, otp_code, expires_at) VALUES ($1, $2, NOW() + INTERVAL '15 minutes')`,
+            [userId, otp]
+        );
+        await sendOTPEmail(userResult.rows[0].email, otp, userResult.rows[0].display_name);
+        
+        res.json({ success: true, message: 'Verification code sent!' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+});
+
 
 // POST /api/auth/refresh-token
 app.post('/api/auth/refresh-token', async (req, res) => {
@@ -495,6 +607,33 @@ app.post('/api/crushes/declare', authenticateToken, async (req, res) => {
         const { crush_username, confidence_level, is_anonymous } = req.body;
         const userId = req.user.userId;
         
+        // ── SECURITY GATE 1: Email must be verified ────────────────────────
+        const userCheck = await db.query(
+            'SELECT is_email_verified, created_at FROM users WHERE id = $1',
+            [userId]
+        );
+        if (!userCheck.rows[0].is_email_verified) {
+            return res.status(403).json({
+                success: false,
+                error: 'Please verify your email before declaring a crush.',
+                code: 'EMAIL_NOT_VERIFIED'
+            });
+        }
+        
+        // ── SECURITY GATE 3: Max 5 crush declarations per 24 hours ────────
+        const recentCrushes = await db.query(
+            `SELECT COUNT(*) FROM crush_declarations 
+             WHERE user_id = $1 AND declared_at > NOW() - INTERVAL '24 hours'`,
+            [userId]
+        );
+        if (parseInt(recentCrushes.rows[0].count) >= 5) {
+            return res.status(429).json({
+                success: false,
+                error: 'You can only declare up to 5 crushes per day. Try again tomorrow!',
+                code: 'DAILY_LIMIT_EXCEEDED'
+            });
+        }
+        
         // Validation
         if (!crush_username) {
             return res.status(400).json({
@@ -509,6 +648,7 @@ app.post('/api/crushes/declare', authenticateToken, async (req, res) => {
                 error: 'Cannot declare crush on yourself'
             });
         }
+
         
         // Check if crush exists
         const crushUser = await db.query(
@@ -644,7 +784,7 @@ app.get('/api/crushes/search', authenticateToken, async (req, res) => {
         const searchTerm = `%${q.toLowerCase()}%`;
         
         const result = await db.query(
-            `SELECT u.id, u.username, u.display_name, u.profile_photo_url, u.bio,
+            `SELECT u.id, u.username, u.display_name, u.profile_photo_url, u.bio, u.is_email_verified,
                     EXISTS(SELECT 1 FROM crush_declarations WHERE user_id = $1 AND crush_user_id = u.id) as you_have_crush_on_them
              FROM users u
              WHERE (LOWER(u.username) LIKE $2 OR LOWER(u.display_name) LIKE $2)
