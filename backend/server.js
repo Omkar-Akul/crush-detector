@@ -361,8 +361,16 @@ app.post('/api/auth/register', upload.single('student_id_photo'), authLimiter, i
             tokens: { accessToken, refreshToken }
         });
     } catch (error) {
-        console.error('Registration error:', error);
-        res.status(500).json({ success: false, error: 'Internal server error', code: 'INTERNAL_ERROR' });
+        console.error('CRITICAL: Registration error details:', {
+            message: error.message,
+            stack: error.stack,
+            code: error.code
+        });
+        res.status(500).json({ 
+            success: false, 
+            error: 'Internal server error during registration',
+            message: error.message 
+        });
     }
 });
 
