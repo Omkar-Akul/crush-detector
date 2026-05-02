@@ -527,8 +527,6 @@ function SearchPage({ token }) {
 
 function CrushesPage({ token }) {
     const [crushes, setAllCrushes] = useState([]);
-    const [crushingOnYou, setAdmirers] = useState([]);
-    const [activeTab, setActiveTab] = useState('my-crushes');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -538,18 +536,10 @@ function CrushesPage({ token }) {
     const fetchCrushes = async () => {
         setLoading(true);
         try {
-            const [myCrushesRes, admirersRes] = await Promise.all([
-                fetch(`${API_URL}/api/crushes/my-crushes`, 
-                    { headers: { 'Authorization': `Bearer ${token}` } }),
-                fetch(`${API_URL}/api/crushes/crushing-on-me`, 
-                    { headers: { 'Authorization': `Bearer ${token}` } })
-            ]);
-
+            const myCrushesRes = await fetch(`${API_URL}/api/crushes/my-crushes`,
+                { headers: { 'Authorization': `Bearer ${token}` } });
             const myCrushesData = await myCrushesRes.json();
-            const admirersData = await admirersRes.json();
-
             if (myCrushesData.success) setAllCrushes(myCrushesData.crushes);
-            if (admirersData.success) setAdmirers(admirersData.crushes);
         } catch (error) {
             console.error('Error fetching crushes:', error);
         } finally {
@@ -560,49 +550,21 @@ function CrushesPage({ token }) {
     return (
         <div className="page crushes-page">
             <h2>Your Crushes 💘</h2>
-
-            <div className="tabs">
-                <button 
-                    className={`tab ${activeTab === 'my-crushes' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('my-crushes')}
-                >
-                    My Crushes ({crushes.length})
-                </button>
-                <button 
-                    className={`tab ${activeTab === 'admirers' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('admirers')}
-                >
-                    Crushing On Me ({crushingOnYou.length})
-                </button>
-            </div>
+            <p className="subtitle">Your crushes are kept anonymous — you'll only be revealed to each other on a mutual match! 🔒</p>
 
             {loading ? (
                 <div className="loading">Loading...</div>
-            ) : activeTab === 'my-crushes' ? (
+            ) : (
                 <div className="crushes-list">
                     {crushes.length > 0 ? (
                         crushes.map(crush => (
-                            <CrushCard key={crush.id} crush={crush} type="declared" />
+                            <CrushCard key={crush.id} crush={crush} />
                         ))
                     ) : (
-                        <EmptyState 
+                        <EmptyState
                             icon="💔"
                             message="You haven't declared any crushes yet"
                             submessage="Use the search to find someone special!"
-                        />
-                    )}
-                </div>
-            ) : (
-                <div className="crushes-list">
-                    {crushingOnYou.length > 0 ? (
-                        crushingOnYou.map(crush => (
-                            <CrushCard key={crush.id} crush={crush} type="admirer" />
-                        ))
-                    ) : (
-                        <EmptyState 
-                            icon="👀"
-                            message="No one has a crush on you yet"
-                            submessage="Complete your profile to stand out!"
                         />
                     )}
                 </div>
@@ -818,42 +780,22 @@ function MatchCard({ match }) {
     );
 }
 
-function CrushCard({ crush, type }) {
-    const handleDeclareCrush = async () => {
-        // This would be called from UserCard
-    };
-
-    if (type === 'declared') {
-        return (
-            <div className="crush-card">
-                {crush.profile_photo_url && (
-                    <img src={crush.profile_photo_url} alt={crush.crush_display_name} />
-                )}
-                <div className="crush-info">
-                    <h3>{crush.crush_display_name}</h3>
-                    <p>@{crush.crush_username}</p>
-                    <div className="crush-status">
-                        {crush.crush_status === 'mutual' && <span className="badge mutual">💕 MUTUAL!</span>}
-                        {crush.crush_status === 'unrequited' && <span className="badge unrequited">😢 Not yet</span>}
-                        {crush.crush_status === 'not_found' && <span className="badge not-found">❓ Not found</span>}
-                    </div>
-                    <p className="confidence">Confidence: {crush.confidence_level}/10</p>
-                </div>
-            </div>
-        );
-    }
-
+function CrushCard({ crush }) {
     return (
-        <div className="crush-card admirer">
+        <div className="crush-card">
             {crush.profile_photo_url && (
-                <img src={crush.profile_photo_url} alt={crush.display_name} />
+                <img src={crush.profile_photo_url} alt={crush.crush_display_name} />
             )}
             <div className="crush-info">
-                <h3>{crush.display_name}</h3>
-                <p>@{crush.username}</p>
+                <h3>{crush.crush_display_name}</h3>
+                <p>@{crush.crush_username}</p>
                 <div className="crush-status">
-                    {crush.crush_status === 'mutual' && <span className="badge mutual">💕 You Like Them Too!</span>}
+                    {crush.crush_status === 'mutual' && <span className="badge mutual">💕 MUTUAL MATCH!</span>}
+                    {crush.crush_status === 'already_matched' && <span className="badge matched">💔 Already matched with someone else</span>}
+                    {crush.crush_status === 'crushing_on_someone_else' && <span className="badge other">👀 Crushing on someone else</span>}
+                    {crush.crush_status === 'no_crush_declared' && <span className="badge pending">⏳ No crush declared yet</span>}
                 </div>
+                <p className="confidence">Confidence: {crush.confidence_level}/10</p>
             </div>
         </div>
     );
@@ -881,9 +823,14 @@ function UserCard({ user, token }) {
 
             const data = await response.json();
             if (data.success) {
-                setMessage(data.message);
-                if (data.crush.mutual) {
-                    setMessage('🎉 MUTUAL CRUSH! You matched!');
+                if (data.crush.crush_status === 'mutual') {
+                    setMessage('🎉 MUTUAL CRUSH! You both like each other!');
+                } else if (data.crush.crush_status === 'already_matched') {
+                    setMessage('💔 Crush declared, but they are already matched with someone else.');
+                } else if (data.crush.crush_status === 'crushing_on_someone_else') {
+                    setMessage('💘 Crush declared! They seem to be crushing on someone else, but who knows! 🤫');
+                } else {
+                    setMessage('💘 Crush declared! They haven\'t declared a crush yet. Stay hopeful! 🤞');
                 }
             } else {
                 setMessage(data.error);
@@ -905,7 +852,6 @@ function UserCard({ user, token }) {
                 <p>@{user.username}</p>
                 <p className="bio-preview">{user.bio}</p>
                 <div className="crush-indicators">
-                    {user.has_crush_on_you && <span className="indicator">👀 Has a crush on you</span>}
                     {user.you_have_crush_on_them && <span className="indicator">💕 You like them</span>}
                 </div>
             </div>

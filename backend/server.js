@@ -569,7 +569,7 @@ app.post('/api/crushes/declare', authenticateToken, async (req, res) => {
                 [user1Id, user2Id]
             );
             
-            // Create notifications for both users
+            // Create notifications for BOTH users only on mutual match
             await db.query(
                 `INSERT INTO notifications (user_id, notification_type, title, message, related_user_id)
                 VALUES ($1, 'match', 'You matched!', $2, $3)`,
@@ -583,12 +583,40 @@ app.post('/api/crushes/declare', authenticateToken, async (req, res) => {
             );
         }
         
+        // Determine crush status to return
+        let crushStatus = 'no_crush_declared';
+        let message = 'Crush declared successfully';
+        
+        if (mutualCrush.rows.length > 0) {
+            crushStatus = 'mutual';
+            message = 'Mutual crush detected! You matched!';
+        } else {
+            // Check if target is already in a mutual match with someone else
+            const alreadyMatched = await db.query(
+                `SELECT id FROM matches 
+                 WHERE (user_1_id = $1 OR user_2_id = $1) AND match_status = 'matched' LIMIT 1`,
+                [crushUserId]
+            );
+            if (alreadyMatched.rows.length > 0) {
+                crushStatus = 'already_matched';
+            } else {
+                // Check if they have a crush on anyone
+                const hasOtherCrush = await db.query(
+                    `SELECT id FROM crush_declarations WHERE user_id = $1 AND status = 'active' LIMIT 1`,
+                    [crushUserId]
+                );
+                if (hasOtherCrush.rows.length > 0) {
+                    crushStatus = 'crushing_on_someone_else';
+                }
+            }
+        }
+        
         res.status(201).json({
             success: true,
-            message: mutualCrush.rows.length > 0 ? 'Mutual crush detected! You matched!' : 'Crush declared successfully',
+            message,
             crush: {
                 ...crush,
-                mutual: mutualCrush.rows.length > 0
+                crush_status: crushStatus
             }
         });
     } catch (error) {
@@ -617,7 +645,6 @@ app.get('/api/crushes/search', authenticateToken, async (req, res) => {
         
         const result = await db.query(
             `SELECT u.id, u.username, u.display_name, u.profile_photo_url, u.bio,
-                    EXISTS(SELECT 1 FROM crush_declarations WHERE user_id = u.id AND crush_user_id = $1) as has_crush_on_you,
                     EXISTS(SELECT 1 FROM crush_declarations WHERE user_id = $1 AND crush_user_id = u.id) as you_have_crush_on_them
              FROM users u
              WHERE (LOWER(u.username) LIKE $2 OR LOWER(u.display_name) LIKE $2)
@@ -649,10 +676,19 @@ app.get('/api/crushes/my-crushes', authenticateToken, async (req, res) => {
             `SELECT cd.id, cd.crush_username, cd.confidence_level, cd.declared_at,
                     u.id as crush_id, u.display_name as crush_display_name, u.profile_photo_url,
                     CASE 
-                        WHEN EXISTS(SELECT 1 FROM crush_declarations WHERE user_id = cd.crush_user_id AND crush_user_id = cd.user_id AND status = 'active')
-                        THEN 'mutual'
-                        WHEN cd.crush_user_id IS NOT NULL THEN 'unrequited'
-                        ELSE 'not_found'
+                        WHEN EXISTS(
+                            SELECT 1 FROM crush_declarations 
+                            WHERE user_id = cd.crush_user_id AND crush_user_id = cd.user_id AND status = 'active'
+                        ) THEN 'mutual'
+                        WHEN EXISTS(
+                            SELECT 1 FROM matches 
+                            WHERE (user_1_id = cd.crush_user_id OR user_2_id = cd.crush_user_id) AND match_status = 'matched'
+                        ) THEN 'already_matched'
+                        WHEN EXISTS(
+                            SELECT 1 FROM crush_declarations 
+                            WHERE user_id = cd.crush_user_id AND status = 'active'
+                        ) THEN 'crushing_on_someone_else'
+                        ELSE 'no_crush_declared'
                     END as crush_status
              FROM crush_declarations cd
              LEFT JOIN users u ON cd.crush_user_id = u.id
