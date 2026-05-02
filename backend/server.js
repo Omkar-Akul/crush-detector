@@ -10,7 +10,6 @@ const nodemailer = require('nodemailer');
 require('dotenv').config();
 const db = require('./config/database');
 
-// Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -18,35 +17,30 @@ const PORT = process.env.PORT || 5000;
 app.set('trust proxy', 1);
 
 // ============================================================================
-// EMAIL + OTP UTILITIES
+// EMAIL + OTP UTILITIES (BREVO SMTP)
 // ============================================================================
 
 const emailTransporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
+    host: 'smtp-relay.brevo.com',
     port: 587,
     secure: false, // Use STARTTLS
     auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    },
-    tls: {
-        rejectUnauthorized: false
+        user: process.env.BREVO_USER,
+        pass: process.env.BREVO_PASS
     }
 });
 
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 const sendOTPEmail = async (email, otp, displayName) => {
-    const userEmail = process.env.EMAIL_USER;
-    
-    if (!userEmail) {
+    if (!process.env.BREVO_PASS) {
         console.log(`\n🔑 [DEV MODE] OTP for ${email}: ${otp}\n`);
         return;
     }
 
     try {
         await emailTransporter.sendMail({
-            from: `"CrushDetector 💘" <${userEmail}>`,
+            from: `"CrushDetector 💘" <omkarakul1907@gmail.com>`, // Use your email here
             to: email,
             subject: 'Verify your CrushDetector account',
             html: `
@@ -61,9 +55,10 @@ const sendOTPEmail = async (email, otp, displayName) => {
                 </div>
             `
         });
+        console.log(`✓ Email sent via Brevo to ${email}`);
     } catch (err) {
-        console.error('❌ SMTP Error:', err.message);
-        throw err; // Re-throw so the caller knows it failed
+        console.error('❌ Brevo SMTP Error:', err.message);
+        throw err;
     }
 };
 
