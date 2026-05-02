@@ -350,8 +350,14 @@ app.post('/api/auth/register', upload.single('student_id_photo'), authLimiter, i
             [user.id, otp]
         );
         
-        // Send OTP email (logs to console in dev if EMAIL_USER not set)
-        await sendOTPEmail(email, otp, display_name);
+        // Send OTP email (non-blocking for registration success)
+        try {
+            await sendOTPEmail(email, otp, display_name);
+            console.log(`✓ OTP sent successfully to ${email}`);
+        } catch (emailError) {
+            console.error('❌ Failed to send OTP email:', emailError.message);
+            // We don't throw here so the user registration still succeeds
+        }
         
         res.status(201).json({
             success: true,
