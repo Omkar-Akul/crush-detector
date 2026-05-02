@@ -925,15 +925,6 @@ function ProfilePage({ user, token }) {
 // REUSABLE COMPONENTS
 // ============================================================================
 
-function StatCard({ icon, label, value, color }) {
-    return (
-        <div className="stat-card" style={{ borderTopColor: color }}>
-            <div className="stat-icon">{icon}</div>
-            <div className="stat-label">{label}</div>
-            <div className="stat-value">{value}</div>
-        </div>
-    );
-}
 
 function UserCard({ user, token }) {
     const [loading, setLoading] = useState(false);
