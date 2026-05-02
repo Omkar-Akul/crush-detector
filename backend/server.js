@@ -14,6 +14,9 @@ const db = require('./config/database');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Render/Vercel Proxy Trust (Required for Rate Limiter)
+app.set('trust proxy', 1);
+
 // ============================================================================
 // EMAIL + OTP UTILITIES
 // ============================================================================
