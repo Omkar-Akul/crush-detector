@@ -31,11 +31,18 @@ function App() {
             if (data.success) {
                 setCurrentUser(data.user);
                 setCurrentPage('dashboard');
+            } else {
+                localStorage.removeItem('accessToken');
+                setToken(null);
+                setCurrentUser(null);
+                setCurrentPage('login');
             }
         } catch (error) {
             console.error('Error fetching user:', error);
             localStorage.removeItem('accessToken');
             setToken(null);
+            setCurrentUser(null);
+            setCurrentPage('login');
         }
     };
 
