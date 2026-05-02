@@ -1,8 +1,12 @@
+# Dependencies
 node_modules/
+
+# Local Secrets (CRITICAL: Do not push to GitHub)
 .env
-.env.*
-!.env.example
-build/
-dist/
-uploads/
+
+# Local Storage (Render will use its own disk)
+backend/uploads/
+
+# OS files
 .DS_Store
+Thumbs.db

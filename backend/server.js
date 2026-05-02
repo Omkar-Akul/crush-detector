@@ -56,9 +56,10 @@ const sendOTPEmail = async (email, otp, displayName) => {
     });
 };
 
-// Auto-create security tables on startup
+// Auto-create security and verification tables on startup
 (async () => {
     try {
+        // 1. Email OTPs table
         await db.query(`
             CREATE TABLE IF NOT EXISTS email_otps (
                 id SERIAL PRIMARY KEY,
@@ -70,9 +71,31 @@ const sendOTPEmail = async (email, otp, displayName) => {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
-        console.log('✓ Security tables ready');
+
+        // 2. Add verification fields to users
+        await db.query(`
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_type VARCHAR(20) DEFAULT 'social';
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS student_id_url TEXT;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS social_link TEXT;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS is_identity_verified BOOLEAN DEFAULT false;
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS college_name VARCHAR(100);
+        `);
+
+        // 3. Verification requests table
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS verification_requests (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id),
+                status VARCHAR(20) DEFAULT 'pending',
+                submitted_at TIMESTAMP DEFAULT NOW(),
+                reviewed_at TIMESTAMP,
+                admin_notes TEXT
+            );
+        `);
+
+        console.log('✓ Security & Verification tables ready');
     } catch (err) {
-        console.error('Warning: Could not create security tables:', err.message);
+        console.error('Warning: Could not setup database tables:', err.message);
     }
 })();
 
@@ -192,6 +215,34 @@ app.get('/api/health', (req, res) => {
 // ============================================================================
 
 const bcrypt = require('bcryptjs');
+const multer = require('multer');
+const path = require('path');
+
+// Multer storage for student IDs
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, 'uploads/');
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'id-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+const upload = multer({ 
+    storage: storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: (req, file, cb) => {
+        const filetypes = /jpeg|jpg|png|pdf/;
+        const mimetype = filetypes.test(file.mimetype);
+        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+        if (mimetype && extname) return cb(null, true);
+        cb(new Error('Error: Only images and PDFs allowed!'));
+    }
+});
+
+// Serve static uploads and public files
+app.use('/uploads', express.static('uploads'));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Generate JWT token
 const generateAccessToken = (user) => {
@@ -217,22 +268,30 @@ const generateRefreshToken = (user) => {
 };
 
 // POST /api/auth/register
-app.post('/api/auth/register', authLimiter, ipRegistrationLimiter, async (req, res) => {
+app.post('/api/auth/register', upload.single('student_id_photo'), authLimiter, ipRegistrationLimiter, async (req, res) => {
     try {
-        const { username, email, password, display_name, date_of_birth } = req.body;
+        const { username, email, password, display_name, date_of_birth, verification_type, social_link, college_name } = req.body;
+        const student_id_url = req.file ? `/uploads/${req.file.filename}` : null;
         
         // Validation
-        if (!username || !email || !password || !display_name) {
+        if (!username || !email || !password || !display_name || !verification_type) {
             return res.status(400).json({ success: false, error: 'Missing required fields' });
         }
-        if (password.length < 8) {
-            return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
+
+        // Verification Specific Validation
+        if (verification_type === 'college') {
+            if (!college_name || !student_id_url) {
+                return res.status(400).json({ success: false, error: 'College name and ID card photo are required for students' });
+            }
+            // Optional: Force college email domain check if you have a list of domains
+        } else if (verification_type === 'social') {
+            if (!social_link) {
+                return res.status(400).json({ success: false, error: 'Instagram or LinkedIn link is required for external users' });
+            }
         }
         
-        // Validate email format
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            return res.status(400).json({ success: false, error: 'Invalid email address' });
+        if (password.length < 8) {
+            return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
         }
         
         // Check if user exists
@@ -247,16 +306,29 @@ app.post('/api/auth/register', authLimiter, ipRegistrationLimiter, async (req, r
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
         
-        // Create user with is_email_verified = FALSE (requires OTP)
+        // Create user
         const result = await db.query(
-            `INSERT INTO users 
-            (username, email, password_hash, display_name, date_of_birth, status, is_email_verified)
-            VALUES ($1, $2, $3, $4, $5, 'active', false)
+            `INSERT INTO users (
+                username, email, password_hash, display_name, date_of_birth, 
+                status, is_email_verified, verification_type, social_link, 
+                student_id_url, college_name, is_identity_verified
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             RETURNING id, username, email, display_name`,
-            [username, email, hashedPassword, display_name, date_of_birth]
+            [
+                username, email, hashedPassword, display_name, date_of_birth, 
+                'active', false, verification_type, social_link || null, 
+                student_id_url, college_name || null, false
+            ]
         );
         
         const user = result.rows[0];
+
+        // Create initial verification request
+        await db.query(
+            'INSERT INTO verification_requests (user_id, status) VALUES ($1, $2)',
+            [user.id, 'pending']
+        );
         
         // Generate tokens
         const accessToken = generateAccessToken(user);
@@ -482,7 +554,8 @@ app.get('/api/users/me', authenticateToken, async (req, res) => {
     try {
         const result = await db.query(
             `SELECT id, username, email, display_name, bio, profile_photo_url, 
-                    date_of_birth, created_at, status, is_email_verified
+                    date_of_birth, created_at, status, is_email_verified,
+                    verification_type, student_id_url, social_link, college_name, is_identity_verified
              FROM users WHERE id = $1`,
             [req.user.userId]
         );
@@ -995,6 +1068,57 @@ app.get('/api/notifications', authenticateToken, async (req, res) => {
 });
 
 // ============================================================================
+// ADMIN DASHBOARD ROUTES (HIDDEN)
+// ============================================================================
+
+const ADMIN_PATH = process.env.ADMIN_SECRET_PATH || 'admin-omkar-default';
+
+// Serve admin page at secret URL
+app.get(`/${ADMIN_PATH}`, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+// GET /api/[SECRET]/pending
+app.get(`/api/${ADMIN_PATH}/pending`, async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT u.id, u.username, u.display_name, u.email, u.verification_type, 
+                   u.college_name, u.student_id_url, u.social_link, vr.submitted_at
+            FROM users u
+            JOIN verification_requests vr ON u.id = vr.user_id
+            WHERE u.is_identity_verified = false AND vr.status = 'pending'
+            ORDER BY vr.submitted_at DESC
+        `);
+        res.json({ success: true, requests: result.rows });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// POST /api/[SECRET]/approve/:id
+app.post(`/api/${ADMIN_PATH}/approve/:id`, async (req, res) => {
+    try {
+        const userId = req.params.id;
+        await db.query('UPDATE users SET is_identity_verified = true WHERE id = $1', [userId]);
+        await db.query("UPDATE verification_requests SET status = 'approved', reviewed_at = NOW() WHERE user_id = $1", [userId]);
+        res.json({ success: true, message: 'User approved successfully' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// POST /api/[SECRET]/reject/:id
+app.post(`/api/${ADMIN_PATH}/reject/:id`, async (req, res) => {
+    try {
+        const userId = req.params.id;
+        await db.query("UPDATE verification_requests SET status = 'rejected', reviewed_at = NOW() WHERE user_id = $1", [userId]);
+        res.json({ success: true, message: 'User rejected' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ============================================================================
 // ERROR HANDLING
 // ============================================================================
 
@@ -1007,7 +1131,6 @@ app.use((req, res) => {
         statusCode: 404
     });
 });
-
 // Global error handler
 app.use((err, req, res, next) => {
     console.error('Error:', err);

@@ -325,8 +325,12 @@ function RegisterPage({ setToken, setCurrentUser, setCurrentPage, onSwitchPage }
         email: '',
         password: '',
         display_name: '',
-        date_of_birth: ''
+        date_of_birth: '',
+        verification_type: 'college', // Default to college
+        college_name: '',
+        social_link: ''
     });
+    const [idPhoto, setIdPhoto] = useState(null);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -334,34 +338,57 @@ function RegisterPage({ setToken, setCurrentUser, setCurrentPage, onSwitchPage }
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
+    const handleFileChange = (e) => {
+        setIdPhoto(e.target.files[0]);
+    };
+
     const handleRegister = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError('');
 
+        // Basic validation
         if (formData.password.length < 8) {
             setError('Password must be at least 8 characters');
             setLoading(false);
             return;
         }
 
+        // Logic validation
+        if (formData.verification_type === 'college') {
+            if (!formData.college_name || !idPhoto) {
+                setError('Please provide your college name and a photo of your ID card.');
+                setLoading(false);
+                return;
+            }
+        } else if (formData.verification_type === 'social') {
+            if (!formData.social_link) {
+                setError('Please provide a link to your Instagram or LinkedIn profile.');
+                setLoading(false);
+                return;
+            }
+        }
+
         try {
+            const data = new FormData();
+            Object.keys(formData).forEach(key => data.append(key, formData[key]));
+            if (idPhoto) data.append('student_id_photo', idPhoto);
+
             const response = await fetch(`${API_URL}/api/auth/register`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
+                body: data
             });
 
-            const data = await response.json();
+            const result = await response.json();
 
-            if (data.success) {
-                localStorage.setItem('accessToken', data.tokens.accessToken);
-                localStorage.setItem('refreshToken', data.tokens.refreshToken);
-                setCurrentUser(data.user);
-                setToken(data.tokens.accessToken);
+            if (result.success) {
+                localStorage.setItem('accessToken', result.tokens.accessToken);
+                localStorage.setItem('refreshToken', result.tokens.refreshToken);
+                setCurrentUser(result.user);
+                setToken(result.tokens.accessToken);
                 setCurrentPage('verify-email');
             } else {
-                setError(data.error || 'Registration failed');
+                setError(result.error || 'Registration failed');
             }
         } catch (error) {
             setError('Connection error. Please try again.');
@@ -373,75 +400,82 @@ function RegisterPage({ setToken, setCurrentUser, setCurrentPage, onSwitchPage }
 
     return (
         <div className="auth-container">
-            <div className="auth-card">
+            <div className="auth-card" style={{ maxWidth: '500px' }}>
                 <h2>Join CrushDetector!</h2>
-                <p className="subtitle">Create account to find your match</p>
+                <p className="subtitle">Choose your verification method to keep the community safe</p>
 
                 {error && <div className="error-message">{error}</div>}
 
                 <form onSubmit={handleRegister}>
-                    <div className="form-group">
-                        <label>Username</label>
-                        <input
-                            type="text"
-                            name="username"
-                            value={formData.username}
-                            onChange={handleChange}
-                            placeholder="Choose a username"
-                            minLength="3"
-                            required
-                        />
+                    <div className="verification-toggle" style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+                        <button 
+                            type="button"
+                            className={`btn ${formData.verification_type === 'college' ? 'btn-primary' : 'btn-secondary'}`}
+                            onClick={() => setFormData({...formData, verification_type: 'college'})}
+                            style={{ flex: 1, textTransform: 'none' }}
+                        >
+                            🎓 College Student
+                        </button>
+                        <button 
+                            type="button"
+                            className={`btn ${formData.verification_type === 'social' ? 'btn-primary' : 'btn-secondary'}`}
+                            onClick={() => setFormData({...formData, verification_type: 'social'})}
+                            style={{ flex: 1, textTransform: 'none' }}
+                        >
+                            🔗 External User
+                        </button>
+                    </div>
+
+                    <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                        <div className="form-group">
+                            <label>Username</label>
+                            <input type="text" name="username" value={formData.username} onChange={handleChange} placeholder="Username" required />
+                        </div>
+                        <div className="form-group">
+                            <label>Full Name</label>
+                            <input type="text" name="display_name" value={formData.display_name} onChange={handleChange} placeholder="Display Name" required />
+                        </div>
                     </div>
 
                     <div className="form-group">
-                        <label>Email</label>
-                        <input
-                            type="email"
-                            name="email"
-                            value={formData.email}
-                            onChange={handleChange}
-                            placeholder="your@email.com"
-                            required
-                        />
-                    </div>
-
-                    <div className="form-group">
-                        <label>Display Name</label>
-                        <input
-                            type="text"
-                            name="display_name"
-                            value={formData.display_name}
-                            onChange={handleChange}
-                            placeholder="Your full name"
-                            required
-                        />
+                        <label>Email Address</label>
+                        <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="your@email.com" required />
                     </div>
 
                     <div className="form-group">
                         <label>Password (min 8 chars)</label>
-                        <input
-                            type="password"
-                            name="password"
-                            value={formData.password}
-                            onChange={handleChange}
-                            placeholder="Choose a strong password"
-                            minLength="8"
-                            required
-                        />
+                        <input type="password" name="password" value={formData.password} onChange={handleChange} placeholder="••••••••" required />
                     </div>
+
+                    {formData.verification_type === 'college' ? (
+                        <div className="college-fields" style={{ background: '#f8f9fa', padding: '15px', borderRadius: '8px', marginBottom: '20px', borderLeft: '4px solid #FF1493' }}>
+                            <div className="form-group">
+                                <label>College/University Name</label>
+                                <input type="text" name="college_name" value={formData.college_name} onChange={handleChange} placeholder="e.g. Stanford University" />
+                            </div>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label>Upload Student ID Card (Photo)</label>
+                                <input type="file" onChange={handleFileChange} accept="image/*" />
+                                <small style={{ color: '#666' }}>This is for verification only and won't be public.</small>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="social-fields" style={{ background: '#f8f9fa', padding: '15px', borderRadius: '8px', marginBottom: '20px', borderLeft: '4px solid #0077b5' }}>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label>Instagram or LinkedIn Profile Link</label>
+                                <input type="url" name="social_link" value={formData.social_link} onChange={handleChange} placeholder="https://instagram.com/yourname" />
+                                <small style={{ color: '#666' }}>Help us verify you are a real person.</small>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="form-group">
                         <label>Date of Birth</label>
-                        <input
-                            type="date"
-                            name="date_of_birth"
-                            value={formData.date_of_birth}
-                            onChange={handleChange}
-                        />
+                        <input type="date" name="date_of_birth" value={formData.date_of_birth} onChange={handleChange} />
                     </div>
 
-                    <button type="submit" className="btn btn-primary" disabled={loading}>
-                        {loading ? 'Creating account...' : 'Create Account'}
+                    <button type="submit" className="btn btn-primary" disabled={loading} style={{ height: '50px', fontSize: '16px' }}>
+                        {loading ? 'Processing...' : '🚀 Create Verified Account'}
                     </button>
                 </form>
 
@@ -498,6 +532,26 @@ function DashboardPage({ user, token, setCurrentPage, currentPage }) {
                     👤 Profile
                 </button>
             </nav>
+
+            {!user.is_identity_verified && (
+                <div className="verification-banner" style={{ 
+                    background: '#fff3cd', 
+                    color: '#856404', 
+                    padding: '12px 20px', 
+                    borderRadius: '8px', 
+                    marginBottom: '20px',
+                    border: '1px solid #ffeeba',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px'
+                }}>
+                    <span style={{ fontSize: '20px' }}>⏳</span>
+                    <div>
+                        <strong>Verification Pending:</strong> Your {user.verification_type === 'college' ? 'Student ID' : 'Social Link'} is being reviewed. 
+                        Your profile will show as <code>⚠️ Unverified</code> until approved.
+                    </div>
+                </div>
+            )}
 
             <div className="dashboard-content">
                 {currentPage === 'dashboard' && <HomePage user={user} token={token} />}
