@@ -490,12 +490,106 @@ function RegisterPage({ setToken, setCurrentUser, setCurrentPage, onSwitchPage }
 }
 
 // ============================================================================
+// REAPPLY MODAL
+// ============================================================================
+
+function ReapplyModal({ token, onClose, onSuccess }) {
+    const [formData, setFormData] = useState({
+        verification_type: 'college',
+        college_name: '',
+        social_link: ''
+    });
+    const [idPhoto, setIdPhoto] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+
+        const data = new FormData();
+        data.append('verification_type', formData.verification_type);
+        if (formData.verification_type === 'college') {
+            data.append('college_name', formData.college_name);
+            if (idPhoto) data.append('student_id_photo', idPhoto);
+        } else {
+            data.append('social_link', formData.social_link);
+        }
+
+        try {
+            const res = await fetch(`${API_URL}/api/users/reapply`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: data
+            });
+            const result = await res.json();
+            if (result.success) {
+                onSuccess();
+            } else {
+                setError(result.error || 'Failed to reapply');
+            }
+        } catch {
+            setError('Connection error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+            <div className="glass-card fade-in" style={{ maxWidth: '500px', width: '100%', padding: '30px', position: 'relative' }}>
+                <button onClick={onClose} style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>✕</button>
+                <h2 style={{ marginBottom: '20px' }}>Re-submit Verification</h2>
+                
+                {error && <div style={{ color: '#ff3b30', marginBottom: '15px', fontSize: '0.9rem' }}>{error}</div>}
+
+                <form onSubmit={handleSubmit}>
+                    <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+                        <button type="button" onClick={() => setFormData({...formData, verification_type: 'college'})} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: '1px solid var(--glass-border)', background: formData.verification_type === 'college' ? 'rgba(255,51,102,0.1)' : 'none', color: 'white' }}>College</button>
+                        <button type="button" onClick={() => setFormData({...formData, verification_type: 'social'})} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: '1px solid var(--glass-border)', background: formData.verification_type === 'social' ? 'rgba(255,51,102,0.1)' : 'none', color: 'white' }}>Social</button>
+                    </div>
+
+                    {formData.verification_type === 'college' ? (
+                        <>
+                            <input type="text" placeholder="College Name" className="input-premium" value={formData.college_name} onChange={e => setFormData({...formData, college_name: e.target.value})} style={{ marginBottom: '15px' }} required />
+                            <label style={{ display: 'block', fontSize: '0.8rem', color: '#999', marginBottom: '10px' }}>Upload New ID Photo</label>
+                            <input type="file" onChange={e => setIdPhoto(e.target.files[0])} style={{ marginBottom: '20px' }} required />
+                        </>
+                    ) : (
+                        <input type="url" placeholder="Social Profile Link" className="input-premium" value={formData.social_link} onChange={e => setFormData({...formData, social_link: e.target.value})} style={{ marginBottom: '20px' }} required />
+                    )}
+
+                    <button type="submit" className="btn-premium" style={{ width: '100%' }} disabled={loading}>
+                        {loading ? 'Submitting...' : 'Submit Re-application'}
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+// ============================================================================
 // DASHBOARD PAGE
 // ============================================================================
 
+
 function DashboardPage({ user, token, setCurrentPage, currentPage }) {
+    const [showReapplyModal, setShowReapplyModal] = useState(false);
+
     return (
         <div className="dashboard-layout" style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '30px', padding: '20px' }}>
+            {showReapplyModal && (
+                <ReapplyModal 
+                    token={token} 
+                    onClose={() => setShowReapplyModal(false)} 
+                    onSuccess={() => {
+                        setShowReapplyModal(false);
+                        window.location.reload(); // Refresh to get new status
+                    }} 
+                />
+            )}
+
             <aside className="glass-card" style={{ height: 'calc(100vh - 120px)', padding: '20px', position: 'sticky', top: '100px', borderRadius: '24px' }}>
                 <nav style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <NavBtn active={currentPage === 'dashboard'} onClick={() => setCurrentPage('dashboard')} icon={<Heart size={18} />} label="Discover" />
@@ -506,14 +600,29 @@ function DashboardPage({ user, token, setCurrentPage, currentPage }) {
                 </nav>
 
                 {!user.is_identity_verified && (
-                    <div style={{ marginTop: 'auto', padding: '15px', borderRadius: '16px', background: 'rgba(255, 193, 7, 0.1)', border: '1px solid rgba(255, 193, 7, 0.2)', color: '#ffc107' }}>
+                    <div style={{ marginTop: 'auto', padding: '15px', borderRadius: '16px', background: user.verification_status === 'rejected' ? 'rgba(255, 59, 48, 0.1)' : 'rgba(255, 193, 7, 0.1)', border: `1px solid ${user.verification_status === 'rejected' ? 'rgba(255, 59, 48, 0.2)' : 'rgba(255, 193, 7, 0.2)'}`, color: user.verification_status === 'rejected' ? '#ff3b30' : '#ffc107' }}>
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
-                            <ShieldAlert size={16} />
-                            <span style={{ fontWeight: '600', fontSize: '0.8rem' }}>Verification Pending</span>
+                            {user.verification_status === 'rejected' ? <ShieldAlert size={16} /> : <Clock size={16} />}
+                            <span style={{ fontWeight: '600', fontSize: '0.8rem' }}>
+                                {user.verification_status === 'rejected' ? 'Verification Rejected' : 'Verification Pending'}
+                            </span>
                         </div>
-                        <p style={{ fontSize: '0.7rem', opacity: 0.8 }}>We're reviewing your {user.verification_type} ID.</p>
+                        <p style={{ fontSize: '0.7rem', opacity: 0.8, marginBottom: '10px' }}>
+                            {user.verification_status === 'rejected' 
+                                ? 'Your ID was not approved. Please re-apply with a clearer photo.' 
+                                : `We're reviewing your ${user.verification_type} ID.`}
+                        </p>
+                        {user.verification_status === 'rejected' && (
+                            <button 
+                                onClick={() => setShowReapplyModal(true)}
+                                style={{ width: '100%', padding: '8px', borderRadius: '8px', background: '#ff3b30', color: 'white', border: 'none', fontSize: '0.7rem', fontWeight: '600', cursor: 'pointer' }}
+                            >
+                                Re-apply Now
+                            </button>
+                        )}
                     </div>
                 )}
+
             </aside>
 
             <main className="dashboard-content fade-in">

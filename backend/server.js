@@ -25,8 +25,56 @@ const axios = require('axios');
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 const sendOTPEmail = async (email, otp, displayName) => {
-    const fromEmail = process.env.BREVO_FROM || process.env.BREVO_USER;
+    const fromEmail = process.env.BREVO_FROM || process.env.BREVO_USER || process.env.EMAIL_FROM;
     const apiKey = process.env.BREVO_PASS;
+
+    // ALWAYS log OTP to console in development for immediate access
+    console.log('\n=======================================');
+    console.log('🚀 [OTP SERVICE] SENDING VERIFICATION CODE');
+    console.log(`📍 TO: ${email}`);
+    console.log(`🔑 CODE: ${otp}`);
+    console.log('=======================================\n');
+
+    // Fallback to SMTP if Brevo API Key is missing (Common in local dev)
+
+    if (!apiKey && process.env.EMAIL_PASS) {
+        try {
+            const transporter = nodemailer.createTransport({
+                host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+                port: process.env.EMAIL_PORT || 587,
+                secure: false, // true for 465, false for other ports
+                auth: {
+                    user: process.env.EMAIL_USER,
+                    pass: process.env.EMAIL_PASS,
+                },
+                tls: {
+                    rejectUnauthorized: false
+                }
+            });
+
+            await transporter.sendMail({
+                from: `"CrushDetector" <${fromEmail}>`,
+                to: email,
+                subject: "Verify your CrushDetector account",
+                html: `
+                    <div style="font-family:Arial,sans-serif;max-width:500px;margin:auto;background:#1a1a2e;color:#fff;border-radius:12px;padding:32px">
+                        <h1 style="color:#FF6B9D;margin:0 0 8px">💘 CrushDetector</h1>
+                        <h2 style="margin:0 0 24px;color:#fff">Verify your email</h2>
+                        <p style="color:#ccc">Hi ${displayName}, welcome! Use this code to verify your account:</p>
+                        <div style="background:#FF6B9D;border-radius:8px;padding:20px;text-align:center;margin:24px 0">
+                            <span style="font-size:36px;font-weight:bold;letter-spacing:8px;color:#fff">${otp}</span>
+                        </div>
+                        <p style="color:#999;font-size:13px">This code expires in 15 minutes. Do not share it with anyone.</p>
+                    </div>
+                `
+            });
+            console.log(`✓ Email sent via SMTP (Nodemailer) to ${email}`);
+            return;
+        } catch (smtpError) {
+            console.error('❌ SMTP Fallback Error:', smtpError.message);
+            // Fall through to console log if SMTP fails too
+        }
+    }
 
     if (!apiKey) {
         console.log(`\n🔑 [DEV MODE] OTP for ${email}: ${otp}\n`);
@@ -61,6 +109,7 @@ const sendOTPEmail = async (email, otp, displayName) => {
         throw err;
     }
 };
+
 
 // Auto-create security and verification tables on startup
 (async () => {
@@ -99,11 +148,55 @@ const sendOTPEmail = async (email, otp, displayName) => {
             );
         `);
 
-        console.log('✓ Security & Verification tables ready');
+        // 4. Sessions table
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS sessions (
+                id SERIAL PRIMARY KEY,
+                user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                token TEXT NOT NULL,
+                ip_address VARCHAR(45),
+                user_agent TEXT,
+                is_active BOOLEAN DEFAULT true,
+                expires_at TIMESTAMP NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // 5. Matches table
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS matches (
+                id SERIAL PRIMARY KEY,
+                user_1_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                user_2_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                match_status VARCHAR(20) DEFAULT 'matched',
+                user_1_reaction VARCHAR(20),
+                user_2_reaction VARCHAR(20),
+                mutual_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_1_id, user_2_id)
+            )
+        `);
+
+        // 6. Notifications table
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS notifications (
+                id SERIAL PRIMARY KEY,
+                user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                notification_type VARCHAR(50) NOT NULL,
+                title VARCHAR(255),
+                message TEXT,
+                related_user_id INT REFERENCES users(id) ON DELETE SET NULL,
+                is_read BOOLEAN DEFAULT false,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        console.log('✓ All database tables ready');
     } catch (err) {
         console.error('Warning: Could not setup database tables:', err.message);
     }
 })();
+
 
 // IP registration limiter (max 3 accounts per IP per 7 days)
 // IP registration limiter (max 3 accounts per IP per 7 days - disabled in dev)
@@ -364,14 +457,13 @@ app.post('/api/auth/register', upload.single('student_id_photo'), authLimiter, i
             [user.id, otp]
         );
         
-        // Send OTP email (non-blocking for registration success)
-        try {
-            await sendOTPEmail(email, otp, display_name);
-            console.log(`✓ OTP sent successfully to ${email}`);
-        } catch (emailError) {
-            console.error('❌ Failed to send OTP email:', emailError.message);
-            // We don't throw here so the user registration still succeeds
-        }
+        // Send OTP email in background (non-blocking for registration success)
+        sendOTPEmail(email, otp, display_name).catch(emailError => {
+            console.error('❌ Background OTP sending failed:', emailError.message);
+        });
+        
+        console.log(`✓ Registration logic completed for ${email}. Redirection triggered.`);
+
         
         res.status(201).json({
             success: true,
@@ -386,9 +478,9 @@ app.post('/api/auth/register', upload.single('student_id_photo'), authLimiter, i
             stack: error.stack,
             code: error.code
         });
-        res.status(500).json({ 
+        res.status(501).json({ 
             success: false, 
-            error: 'Internal server error during registration',
+            error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error during registration',
             message: error.message 
         });
     }
@@ -515,7 +607,11 @@ app.post('/api/auth/resend-otp', authenticateToken, resendOtpLimiter, async (req
         res.json({ success: true, message: 'Verification code sent!' });
     } catch (error) {
         console.error('Resend OTP error:', error);
-        res.status(500).json({ success: false, error: 'Internal server error' });
+        res.status(500).json({ 
+            success: false, 
+            error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
+            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 });
 
@@ -588,31 +684,56 @@ app.post('/api/auth/logout', authenticateToken, async (req, res) => {
 app.get('/api/users/me', authenticateToken, async (req, res) => {
     try {
         const result = await db.query(
-            `SELECT id, username, email, display_name, bio, profile_photo_url, 
-                    date_of_birth, created_at, status, is_email_verified,
-                    verification_type, student_id_url, social_link, college_name, is_identity_verified
-             FROM users WHERE id = $1`,
+            `SELECT u.id, u.username, u.email, u.display_name, u.bio, u.profile_photo_url, 
+                    u.date_of_birth, u.created_at, u.status, u.is_email_verified,
+                    u.verification_type, u.student_id_url, u.social_link, u.college_name, u.is_identity_verified,
+                    (SELECT status FROM verification_requests WHERE user_id = u.id ORDER BY submitted_at DESC LIMIT 1) as verification_status
+             FROM users u WHERE u.id = $1`,
             [req.user.userId]
         );
         
         if (result.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                error: 'User not found'
-            });
+            return res.status(404).json({ success: false, error: 'User not found' });
         }
         
-        res.json({
-            success: true,
-            user: result.rows[0]
-        });
+        res.json({ success: true, user: result.rows[0] });
     } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: 'Internal server error'
-        });
+        res.status(500).json({ success: false, error: 'Internal server error' });
     }
 });
+
+// POST /api/users/reapply
+app.post('/api/users/reapply', authenticateToken, upload.single('student_id_photo'), async (req, res) => {
+    try {
+        const { verification_type, college_name, social_link } = req.body;
+        const userId = req.user.userId;
+        const student_id_url = req.file ? req.file.path : null;
+
+        // Update user record
+        await db.query(
+            `UPDATE users SET 
+                verification_type = $1, 
+                college_name = $2, 
+                social_link = $3, 
+                student_id_url = COALESCE($4, student_id_url),
+                is_identity_verified = false
+             WHERE id = $5`,
+            [verification_type, college_name || null, social_link || null, student_id_url, userId]
+        );
+
+        // Create new verification request
+        await db.query(
+            'INSERT INTO verification_requests (user_id, status, submitted_at) VALUES ($1, $2, NOW())',
+            [userId, 'pending']
+        );
+
+        res.json({ success: true, message: 'Re-application submitted successfully!' });
+    } catch (error) {
+        console.error('Re-apply error:', error);
+        res.status(500).json({ success: false, error: 'Internal server error during re-application' });
+    }
+});
+
 
 // GET /api/users/:username
 app.get('/api/users/:username', optionalAuth, async (req, res) => {
