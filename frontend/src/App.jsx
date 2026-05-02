@@ -501,7 +501,7 @@ function DashboardPage({ user, token, setCurrentPage, currentPage }) {
                     <NavBtn active={currentPage === 'dashboard'} onClick={() => setCurrentPage('dashboard')} icon={<Heart size={18} />} label="Discover" />
                     <NavBtn active={currentPage === 'search'} onClick={() => setCurrentPage('search')} icon={<UserPlus size={18} />} label="Add Crush" />
                     <NavBtn active={currentPage === 'crushes'} onClick={() => setCurrentPage('crushes')} icon={<Clock size={18} />} label="My Crushes" />
-                    <NavBtn active={currentPage === 'matches'} onClick={() => setCurrentPage('matches'} icon={<Heart size={18} fill={currentPage === 'matches' ? 'currentColor' : 'none'} />} label="Matches" />
+                    <NavBtn active={currentPage === 'matches'} onClick={() => setCurrentPage('matches')} icon={<Heart size={18} fill={currentPage === 'matches' ? 'currentColor' : 'none'} />} label="Matches" />
                     <NavBtn active={currentPage === 'profile'} onClick={() => setCurrentPage('profile')} icon={<User size={18} />} label="Settings" />
                 </nav>
 
