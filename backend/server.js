@@ -17,47 +17,48 @@ const PORT = process.env.PORT || 5000;
 app.set('trust proxy', 1);
 
 // ============================================================================
-// EMAIL + OTP UTILITIES (BREVO SMTP)
+// EMAIL + OTP UTILITIES (BREVO WEB API)
 // ============================================================================
 
-const emailTransporter = nodemailer.createTransport({
-    host: 'smtp-relay.brevo.com',
-    port: 587,
-    secure: false, // Use STARTTLS
-    auth: {
-        user: process.env.BREVO_USER,
-        pass: process.env.BREVO_PASS
-    }
-});
+const Brevo = require('@getbrevo/brevo');
+let apiInstance = new Brevo.TransactionalEmailsApi();
+
+// Setup API Key
+if (process.env.BREVO_PASS) {
+    apiInstance.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_PASS);
+}
 
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 const sendOTPEmail = async (email, otp, displayName) => {
+    const fromEmail = process.env.BREVO_FROM || process.env.BREVO_USER;
+    
     if (!process.env.BREVO_PASS) {
         console.log(`\n🔑 [DEV MODE] OTP for ${email}: ${otp}\n`);
         return;
     }
 
     try {
-        await emailTransporter.sendMail({
-            from: `"CrushDetector 💘" <omkarakul1907@gmail.com>`, // Use your email here
-            to: email,
-            subject: 'Verify your CrushDetector account',
-            html: `
-                <div style="font-family:Arial,sans-serif;max-width:500px;margin:auto;background:#1a1a2e;color:#fff;border-radius:12px;padding:32px">
-                    <h1 style="color:#FF6B9D;margin:0 0 8px">💘 CrushDetector</h1>
-                    <h2 style="margin:0 0 24px;color:#fff">Verify your email</h2>
-                    <p style="color:#ccc">Hi ${displayName}, welcome! Use this code to verify your account:</p>
-                    <div style="background:#FF6B9D;border-radius:8px;padding:20px;text-align:center;margin:24px 0">
-                        <span style="font-size:36px;font-weight:bold;letter-spacing:8px;color:#fff">${otp}</span>
-                    </div>
-                    <p style="color:#999;font-size:13px">This code expires in 15 minutes. Do not share it with anyone.</p>
+        const sendSmtpEmail = new Brevo.SendSmtpEmail();
+        sendSmtpEmail.subject = "Verify your CrushDetector account";
+        sendSmtpEmail.htmlContent = `
+            <div style="font-family:Arial,sans-serif;max-width:500px;margin:auto;background:#1a1a2e;color:#fff;border-radius:12px;padding:32px">
+                <h1 style="color:#FF6B9D;margin:0 0 8px">💘 CrushDetector</h1>
+                <h2 style="margin:0 0 24px;color:#fff">Verify your email</h2>
+                <p style="color:#ccc">Hi ${displayName}, welcome! Use this code to verify your account:</p>
+                <div style="background:#FF6B9D;border-radius:8px;padding:20px;text-align:center;margin:24px 0">
+                    <span style="font-size:36px;font-weight:bold;letter-spacing:8px;color:#fff">${otp}</span>
                 </div>
-            `
-        });
-        console.log(`✓ Email sent via Brevo to ${email}`);
+                <p style="color:#999;font-size:13px">This code expires in 15 minutes. Do not share it with anyone.</p>
+            </div>
+        `;
+        sendSmtpEmail.sender = { "name": "CrushDetector", "email": fromEmail };
+        sendSmtpEmail.to = [{ "email": email, "name": displayName }];
+
+        await apiInstance.sendTransacEmail(sendSmtpEmail);
+        console.log(`✓ Email sent via Brevo API to ${email}`);
     } catch (err) {
-        console.error('❌ Brevo SMTP Error:', err.message);
+        console.error('❌ Brevo API Error:', err.message || err);
         throw err;
     }
 };
