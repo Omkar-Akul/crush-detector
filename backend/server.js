@@ -21,9 +21,9 @@ app.set('trust proxy', 1);
 // ============================================================================
 
 const Brevo = require('@getbrevo/brevo');
-let apiInstance = new Brevo.TransactionalEmailsApi();
+const apiInstance = new Brevo.TransactionalEmailsApi();
 
-// Setup API Key
+// Setup Brevo API Key
 if (process.env.BREVO_PASS) {
     apiInstance.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_PASS);
 }
