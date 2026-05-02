@@ -1,10 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps, no-unused-vars */
 import React, { useState, useEffect } from 'react';
-import './App.css';
-
-// ============================================================================
-// MUTUAL CRUSH DETECTOR - REACT FRONTEND
-// ============================================================================
+import './index.css';
+import { Heart, LogOut, User, ShieldCheck, Mail, Lock, UserPlus, LogIn, ChevronRight, CheckCircle, Clock, Trash2, ShieldAlert } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
@@ -64,21 +61,33 @@ function App() {
 
     return (
         <div className="app">
-            <header className="header">
-                <div className="header-content">
-                    <h1 className="logo">💘 CrushDetector</h1>
+            <header className="header glass-card" style={{ margin: '20px', borderRadius: '16px', padding: '10px 30px' }}>
+                <div className="header-content" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="logo-group" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <Heart className="primary-color" fill="#ff3366" size={28} />
+                        <h1 className="logo" style={{ fontSize: '1.5rem', fontWeight: '700', letterSpacing: '-0.5px' }}>CrushDetector</h1>
+                    </div>
                     {currentUser && currentUser.is_email_verified && (
-                        <div className="user-section">
-                            <span className="welcome-text">Welcome, {currentUser.display_name}</span>
-                            <button className="logout-btn" onClick={handleLogout}>Logout</button>
+                        <div className="user-section" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                            <span className="welcome-text" style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                <User size={14} style={{ marginRight: '5px', verticalAlign: 'middle' }} />
+                                {currentUser.display_name}
+                            </span>
+                            <button className="logout-btn" onClick={handleLogout} style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <LogOut size={18} />
+                                <span>Logout</span>
+                            </button>
                         </div>
                     )}
                 </div>
             </header>
 
-            <main className="main-content">
+            <main className="main-content" style={{ padding: '0 20px' }}>
                 {appLoading ? (
-                    <div className="loading-screen"><div className="loading-spinner">💘</div><p>Loading...</p></div>
+                    <div className="loading-screen" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+                        <Heart className="loading-heart" fill="#ff3366" size={48} style={{ marginBottom: '20px' }} />
+                        <p style={{ color: 'var(--text-muted)' }}>Preparing your heart...</p>
+                    </div>
                 ) : !token ? (
                     currentPage === 'login' ? (
                         <LoginPage setToken={setToken} setCurrentUser={setCurrentUser} setCurrentPage={setCurrentPage} onSwitchPage={() => setCurrentPage('register')} />
@@ -117,27 +126,30 @@ function OTPVerificationPage({ token, email, onVerified }) {
     const [resendCooldown, setResendCooldown] = useState(0);
 
     useEffect(() => {
+        let timer;
         if (resendCooldown > 0) {
-            const timer = setTimeout(() => setResendCooldown(c => c - 1), 1000);
-            return () => clearTimeout(timer);
+            timer = setInterval(() => setResendCooldown(c => c - 1), 1000);
         }
+        return () => clearInterval(timer);
     }, [resendCooldown]);
 
     const handleVerify = async (e) => {
         e.preventDefault();
-        if (otp.length !== 6) { setError('Please enter the 6-digit code'); return; }
         setLoading(true);
         setError('');
         try {
             const response = await fetch(`${API_URL}/api/auth/verify-email`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}` 
+                },
                 body: JSON.stringify({ otp })
             });
             const data = await response.json();
             if (data.success) {
-                setSuccess('✅ Email verified! Taking you in...');
-                setTimeout(() => onVerified(), 1500);
+                setSuccess('✅ Account verified!');
+                setTimeout(onVerified, 1500);
             } else {
                 setError(data.error || 'Invalid code. Try again.');
             }
@@ -168,52 +180,48 @@ function OTPVerificationPage({ token, email, onVerified }) {
     };
 
     return (
-        <div className="auth-container">
-            <div className="auth-card">
-                <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                    <div style={{ fontSize: '48px' }}>📧</div>
-                    <h2>Verify your email</h2>
-                    <p className="subtitle">We sent a 6-digit code to<br /><strong>{email}</strong></p>
+        <div className="auth-container fade-in" style={{ display: 'flex', justifyContent: 'center', padding: '60px 20px' }}>
+            <div className="auth-card glass-card" style={{ maxWidth: '450px', padding: '40px' }}>
+                <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                    <div style={{ background: 'var(--primary-glow)', width: '70px', height: '70px', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                        <Mail className="primary-color" size={32} />
+                    </div>
+                    <h2 style={{ fontSize: '1.8rem', fontWeight: '700', marginBottom: '10px' }}>Verify your email</h2>
+                    <p style={{ color: 'var(--text-muted)', lineHeight: '1.6' }}>We sent a 6-digit code to<br /><strong style={{ color: 'var(--text-main)' }}>{email}</strong></p>
                 </div>
 
-                {error && <div className="error-message">{error}</div>}
-                {success && <div className="success-message">{success}</div>}
+                {error && <div className="error-message glass-card" style={{ background: 'rgba(255, 59, 48, 0.1)', color: '#ff3b30', padding: '12px', borderRadius: '12px', marginBottom: '20px', textAlign: 'center', border: '1px solid rgba(255, 59, 48, 0.2)' }}>{error}</div>}
+                {success && <div className="success-message glass-card" style={{ background: 'rgba(52, 199, 89, 0.1)', color: '#34c759', padding: '12px', borderRadius: '12px', marginBottom: '20px', textAlign: 'center', border: '1px solid rgba(52, 199, 89, 0.2)' }}>{success}</div>}
 
                 <form onSubmit={handleVerify}>
-                    <div className="form-group">
-                        <label>Verification Code</label>
+                    <div className="form-group" style={{ marginBottom: '24px' }}>
                         <input
                             type="text"
                             value={otp}
                             onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                            placeholder="Enter 6-digit code"
+                            placeholder="000000"
+                            className="input-premium"
                             maxLength={6}
-                            style={{ fontSize: '24px', letterSpacing: '8px', textAlign: 'center' }}
+                            style={{ fontSize: '32px', letterSpacing: '12px', textAlign: 'center', fontWeight: '700' }}
                             autoFocus
                             required
                         />
                     </div>
-                    <button type="submit" className="btn btn-primary" disabled={loading}>
-                        {loading ? 'Verifying...' : '✅ Verify Account'}
+                    <button type="submit" className="btn-premium" style={{ width: '100%' }} disabled={loading}>
+                        {loading ? 'Verifying...' : 'Verify Account'}
                     </button>
                 </form>
 
-                <p className="switch-text" style={{ marginTop: '16px' }}>
-                    Didn't receive it?{' '}
-                    {resendCooldown > 0 ? (
-                        <span style={{ color: '#999' }}>Resend in {resendCooldown}s</span>
-                    ) : (
-                        <button onClick={handleResend} className="link-btn">Resend code</button>
-                    )}
-                </p>
-                <p style={{ fontSize: '12px', color: '#999', textAlign: 'center', marginTop: '8px' }}>
-                    💡 In development mode, check the backend console for your OTP.
-                </p>
-            </div>
-            <div className="auth-decoration">
-                <div className="floating-heart">📧</div>
-                <div className="floating-heart">🔐</div>
-                <div className="floating-heart">✅</div>
+                <div style={{ marginTop: '24px', textAlign: 'center' }}>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                        Didn't receive it?{' '}
+                        {resendCooldown > 0 ? (
+                            <span style={{ fontWeight: '600' }}>Retry in {resendCooldown}s</span>
+                        ) : (
+                            <button onClick={handleResend} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: '600', cursor: 'pointer', textDecoration: 'underline' }}>Resend code</button>
+                        )}
+                    </p>
+                </div>
             </div>
         </div>
     );
@@ -266,50 +274,57 @@ function LoginPage({ setToken, setCurrentUser, setCurrentPage, onSwitchPage }) {
     };
 
     return (
-        <div className="auth-container">
-            <div className="auth-card">
-                <h2>Welcome Back!</h2>
-                <p className="subtitle">Find out if your crush likes you back</p>
+        <div className="auth-container fade-in" style={{ display: 'flex', justifyContent: 'center', padding: '60px 20px' }}>
+            <div className="auth-card glass-card" style={{ maxWidth: '450px', padding: '40px' }}>
+                <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                    <h2 style={{ fontSize: '2rem', fontWeight: '700', marginBottom: '10px' }}>Welcome Back</h2>
+                    <p style={{ color: 'var(--text-muted)' }}>Find out if your crush likes you back</p>
+                </div>
 
-                {error && <div className="error-message">{error}</div>}
+                {error && <div className="error-message glass-card" style={{ background: 'rgba(255, 59, 48, 0.1)', color: '#ff3b30', padding: '12px', borderRadius: '12px', marginBottom: '20px', textAlign: 'center' }}>{error}</div>}
 
                 <form onSubmit={handleLogin}>
-                    <div className="form-group">
-                        <label>Username</label>
-                        <input
-                            type="text"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            placeholder="Enter your username"
-                            required
-                        />
+                    <div className="form-group" style={{ marginBottom: '20px' }}>
+                        <div style={{ position: 'relative' }}>
+                            <User size={18} style={{ position: 'absolute', left: '16px', top: '16px', color: 'var(--text-muted)' }} />
+                            <input
+                                type="text"
+                                className="input-premium"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                placeholder="Username"
+                                style={{ paddingLeft: '48px' }}
+                                required
+                            />
+                        </div>
                     </div>
 
-                    <div className="form-group">
-                        <label>Password</label>
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Enter your password"
-                            required
-                        />
+                    <div className="form-group" style={{ marginBottom: '30px' }}>
+                        <div style={{ position: 'relative' }}>
+                            <Lock size={18} style={{ position: 'absolute', left: '16px', top: '16px', color: 'var(--text-muted)' }} />
+                            <input
+                                type="password"
+                                className="input-premium"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="Password"
+                                style={{ paddingLeft: '48px' }}
+                                required
+                            />
+                        </div>
                     </div>
 
-                    <button type="submit" className="btn btn-primary" disabled={loading}>
-                        {loading ? 'Logging in...' : 'Login'}
+                    <button type="submit" className="btn-premium" style={{ width: '100%' }} disabled={loading}>
+                        {loading ? 'Entering...' : 'Login to Dashboard'}
+                        <LogIn size={18} />
                     </button>
                 </form>
 
-                <p className="switch-text">
-                    Don't have an account? <button onClick={onSwitchPage} className="link-btn">Sign up</button>
-                </p>
-            </div>
-
-            <div className="auth-decoration">
-                <div className="floating-heart">💕</div>
-                <div className="floating-heart">💖</div>
-                <div className="floating-heart">💗</div>
+                <div style={{ marginTop: '30px', textAlign: 'center', borderTop: '1px solid var(--glass-border)', paddingTop: '20px' }}>
+                    <p style={{ color: 'var(--text-muted)' }}>
+                        Don't have an account? <button onClick={onSwitchPage} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: '600', cursor: 'pointer' }}>Create one now</button>
+                    </p>
+                </div>
             </div>
         </div>
     );
@@ -326,7 +341,7 @@ function RegisterPage({ setToken, setCurrentUser, setCurrentPage, onSwitchPage }
         password: '',
         display_name: '',
         date_of_birth: '',
-        verification_type: 'college', // Default to college
+        verification_type: 'college', 
         college_name: '',
         social_link: ''
     });
@@ -347,23 +362,21 @@ function RegisterPage({ setToken, setCurrentUser, setCurrentPage, onSwitchPage }
         setLoading(true);
         setError('');
 
-        // Basic validation
         if (formData.password.length < 8) {
             setError('Password must be at least 8 characters');
             setLoading(false);
             return;
         }
 
-        // Logic validation
         if (formData.verification_type === 'college') {
             if (!formData.college_name || !idPhoto) {
-                setError('Please provide your college name and a photo of your ID card.');
+                setError('College name and ID card photo are required.');
                 setLoading(false);
                 return;
             }
         } else if (formData.verification_type === 'social') {
             if (!formData.social_link) {
-                setError('Please provide a link to your Instagram or LinkedIn profile.');
+                setError('Instagram or LinkedIn link is required.');
                 setLoading(false);
                 return;
             }
@@ -392,102 +405,85 @@ function RegisterPage({ setToken, setCurrentUser, setCurrentPage, onSwitchPage }
             }
         } catch (error) {
             setError('Connection error. Please try again.');
-            console.error('Registration error:', error);
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="auth-container">
-            <div className="auth-card" style={{ maxWidth: '500px' }}>
-                <h2>Join CrushDetector!</h2>
-                <p className="subtitle">Choose your verification method to keep the community safe</p>
+        <div className="auth-container fade-in" style={{ display: 'flex', justifyContent: 'center', padding: '40px 20px' }}>
+            <div className="auth-card glass-card" style={{ maxWidth: '550px', padding: '40px' }}>
+                <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                    <h2 style={{ fontSize: '2rem', fontWeight: '700', marginBottom: '10px' }}>Join the Circle</h2>
+                    <p style={{ color: 'var(--text-muted)' }}>Secure and private identity verification</p>
+                </div>
 
-                {error && <div className="error-message">{error}</div>}
+                {error && <div className="error-message glass-card" style={{ background: 'rgba(255, 59, 48, 0.1)', color: '#ff3b30', padding: '12px', borderRadius: '12px', marginBottom: '20px', textAlign: 'center' }}>{error}</div>}
 
                 <form onSubmit={handleRegister}>
-                    <div className="verification-toggle" style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+                    <div style={{ display: 'flex', gap: '10px', marginBottom: '24px' }}>
                         <button 
                             type="button"
-                            className={`btn ${formData.verification_type === 'college' ? 'btn-primary' : 'btn-secondary'}`}
+                            className="input-premium"
                             onClick={() => setFormData({...formData, verification_type: 'college'})}
-                            style={{ flex: 1, textTransform: 'none' }}
+                            style={{ flex: 1, borderColor: formData.verification_type === 'college' ? 'var(--primary)' : 'var(--glass-border)', background: formData.verification_type === 'college' ? 'rgba(255, 51, 102, 0.1)' : 'none' }}
                         >
-                            🎓 College Student
+                            College Student
                         </button>
                         <button 
                             type="button"
-                            className={`btn ${formData.verification_type === 'social' ? 'btn-primary' : 'btn-secondary'}`}
+                            className="input-premium"
                             onClick={() => setFormData({...formData, verification_type: 'social'})}
-                            style={{ flex: 1, textTransform: 'none' }}
+                            style={{ flex: 1, borderColor: formData.verification_type === 'social' ? 'var(--primary)' : 'var(--glass-border)', background: formData.verification_type === 'social' ? 'rgba(255, 51, 102, 0.1)' : 'none' }}
                         >
-                            🔗 External User
+                            External User
                         </button>
                     </div>
 
-                    <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                        <div className="form-group">
-                            <label>Username</label>
-                            <input type="text" name="username" value={formData.username} onChange={handleChange} placeholder="Username" required />
-                        </div>
-                        <div className="form-group">
-                            <label>Full Name</label>
-                            <input type="text" name="display_name" value={formData.display_name} onChange={handleChange} placeholder="Display Name" required />
-                        </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '20px' }}>
+                        <input type="text" name="username" className="input-premium" value={formData.username} onChange={handleChange} placeholder="Username" required />
+                        <input type="text" name="display_name" className="input-premium" value={formData.display_name} onChange={handleChange} placeholder="Full Name" required />
                     </div>
 
-                    <div className="form-group">
-                        <label>Email Address</label>
-                        <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="your@email.com" required />
-                    </div>
-
-                    <div className="form-group">
-                        <label>Password (min 8 chars)</label>
-                        <input type="password" name="password" value={formData.password} onChange={handleChange} placeholder="••••••••" required />
-                    </div>
+                    <input type="email" name="email" className="input-premium" value={formData.email} onChange={handleChange} placeholder="Email Address" style={{ marginBottom: '20px' }} required />
+                    <input type="password" name="password" className="input-premium" value={formData.password} onChange={handleChange} placeholder="Password (min 8 chars)" style={{ marginBottom: '20px' }} required />
 
                     {formData.verification_type === 'college' ? (
-                        <div className="college-fields" style={{ background: '#f8f9fa', padding: '15px', borderRadius: '8px', marginBottom: '20px', borderLeft: '4px solid #FF1493' }}>
-                            <div className="form-group">
-                                <label>College/University Name</label>
-                                <input type="text" name="college_name" value={formData.college_name} onChange={handleChange} placeholder="e.g. Stanford University" />
+                        <div className="glass-card" style={{ padding: '20px', marginBottom: '20px', background: 'rgba(255, 255, 255, 0.02)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px', color: 'var(--primary)' }}>
+                                <ShieldCheck size={18} />
+                                <span style={{ fontWeight: '600' }}>Student Verification</span>
                             </div>
-                            <div className="form-group" style={{ marginBottom: 0 }}>
-                                <label>Upload Student ID Card (Photo)</label>
-                                <input type="file" onChange={handleFileChange} accept="image/*" />
-                                <small style={{ color: '#666' }}>This is for verification only and won't be public.</small>
-                            </div>
+                            <input type="text" name="college_name" className="input-premium" value={formData.college_name} onChange={handleChange} placeholder="College/University Name" style={{ marginBottom: '15px' }} />
+                            <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', display: 'block' }}>Upload Student ID Card Photo</label>
+                            <input type="file" onChange={handleFileChange} accept="image/*" style={{ fontSize: '0.8rem' }} />
                         </div>
                     ) : (
-                        <div className="social-fields" style={{ background: '#f8f9fa', padding: '15px', borderRadius: '8px', marginBottom: '20px', borderLeft: '4px solid #0077b5' }}>
-                            <div className="form-group" style={{ marginBottom: 0 }}>
-                                <label>Instagram or LinkedIn Profile Link</label>
-                                <input type="url" name="social_link" value={formData.social_link} onChange={handleChange} placeholder="https://instagram.com/yourname" />
-                                <small style={{ color: '#666' }}>Help us verify you are a real person.</small>
+                        <div className="glass-card" style={{ padding: '20px', marginBottom: '20px', background: 'rgba(255, 255, 255, 0.02)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px', color: 'var(--primary)' }}>
+                                <UserPlus size={18} />
+                                <span style={{ fontWeight: '600' }}>Social Verification</span>
                             </div>
+                            <input type="url" name="social_link" className="input-premium" value={formData.social_link} onChange={handleChange} placeholder="Instagram or LinkedIn Profile URL" />
                         </div>
                     )}
 
-                    <div className="form-group">
-                        <label>Date of Birth</label>
-                        <input type="date" name="date_of_birth" value={formData.date_of_birth} onChange={handleChange} />
+                    <div style={{ marginBottom: '30px' }}>
+                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', display: 'block' }}>Date of Birth</label>
+                        <input type="date" name="date_of_birth" className="input-premium" value={formData.date_of_birth} onChange={handleChange} />
                     </div>
 
-                    <button type="submit" className="btn btn-primary" disabled={loading} style={{ height: '50px', fontSize: '16px' }}>
-                        {loading ? 'Processing...' : '🚀 Create Verified Account'}
+                    <button type="submit" className="btn-premium" style={{ width: '100%' }} disabled={loading}>
+                        {loading ? 'Processing...' : 'Create Verified Account'}
+                        <ChevronRight size={18} />
                     </button>
                 </form>
 
-                <p className="switch-text">
-                    Already have an account? <button onClick={onSwitchPage} className="link-btn">Login</button>
-                </p>
-            </div>
-
-            <div className="auth-decoration">
-                <div className="floating-heart">💕</div>
-                <div className="floating-heart">💖</div>
-                <div className="floating-heart">💗</div>
+                <div style={{ marginTop: '30px', textAlign: 'center', borderTop: '1px solid var(--glass-border)', paddingTop: '20px' }}>
+                    <p style={{ color: 'var(--text-muted)' }}>
+                        Already a member? <button onClick={onSwitchPage} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: '600', cursor: 'pointer' }}>Sign In</button>
+                    </p>
+                </div>
             </div>
         </div>
     );
@@ -499,68 +495,53 @@ function RegisterPage({ setToken, setCurrentUser, setCurrentPage, onSwitchPage }
 
 function DashboardPage({ user, token, setCurrentPage, currentPage }) {
     return (
-        <div className="dashboard">
-            <nav className="dashboard-nav">
-                <button 
-                    className={`nav-item ${currentPage === 'dashboard' ? 'active' : ''}`}
-                    onClick={() => setCurrentPage('dashboard')}
-                >
-                    🏠 Home
-                </button>
-                <button 
-                    className={`nav-item ${currentPage === 'search' ? 'active' : ''}`}
-                    onClick={() => setCurrentPage('search')}
-                >
-                    🔍 Search
-                </button>
-                <button 
-                    className={`nav-item ${currentPage === 'crushes' ? 'active' : ''}`}
-                    onClick={() => setCurrentPage('crushes')}
-                >
-                    💘 My Crushes
-                </button>
-                <button 
-                    className={`nav-item ${currentPage === 'matches' ? 'active' : ''}`}
-                    onClick={() => setCurrentPage('matches')}
-                >
-                    💕 Matches
-                </button>
-                <button 
-                    className={`nav-item ${currentPage === 'profile' ? 'active' : ''}`}
-                    onClick={() => setCurrentPage('profile')}
-                >
-                    👤 Profile
-                </button>
-            </nav>
+        <div className="dashboard-layout" style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '30px', padding: '20px' }}>
+            <aside className="glass-card" style={{ height: 'calc(100vh - 120px)', padding: '20px', position: 'sticky', top: '100px', borderRadius: '24px' }}>
+                <nav style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <NavBtn active={currentPage === 'dashboard'} onClick={() => setCurrentPage('dashboard')} icon={<Heart size={18} />} label="Discover" />
+                    <NavBtn active={currentPage === 'search'} onClick={() => setCurrentPage('search')} icon={<UserPlus size={18} />} label="Add Crush" />
+                    <NavBtn active={currentPage === 'crushes'} onClick={() => setCurrentPage('crushes')} icon={<Clock size={18} />} label="My Crushes" />
+                    <NavBtn active={currentPage === 'matches'} onClick={() => setCurrentPage('matches'} icon={<Heart size={18} fill={currentPage === 'matches' ? 'currentColor' : 'none'} />} label="Matches" />
+                    <NavBtn active={currentPage === 'profile'} onClick={() => setCurrentPage('profile')} icon={<User size={18} />} label="Settings" />
+                </nav>
 
-            {!user.is_identity_verified && (
-                <div className="verification-banner" style={{ 
-                    background: '#fff3cd', 
-                    color: '#856404', 
-                    padding: '12px 20px', 
-                    borderRadius: '8px', 
-                    marginBottom: '20px',
-                    border: '1px solid #ffeeba',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px'
-                }}>
-                    <span style={{ fontSize: '20px' }}>⏳</span>
-                    <div>
-                        <strong>Verification Pending:</strong> Your {user.verification_type === 'college' ? 'Student ID' : 'Social Link'} is being reviewed. 
-                        Your profile will show as <code>⚠️ Unverified</code> until approved.
+                {!user.is_identity_verified && (
+                    <div style={{ marginTop: 'auto', padding: '15px', borderRadius: '16px', background: 'rgba(255, 193, 7, 0.1)', border: '1px solid rgba(255, 193, 7, 0.2)', color: '#ffc107' }}>
+                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
+                            <ShieldAlert size={16} />
+                            <span style={{ fontWeight: '600', fontSize: '0.8rem' }}>Verification Pending</span>
+                        </div>
+                        <p style={{ fontSize: '0.7rem', opacity: 0.8 }}>We're reviewing your {user.verification_type} ID.</p>
                     </div>
-                </div>
-            )}
+                )}
+            </aside>
 
-            <div className="dashboard-content">
+            <main className="dashboard-content fade-in">
                 {currentPage === 'dashboard' && <HomePage user={user} token={token} />}
                 {currentPage === 'search' && <SearchPage token={token} />}
                 {currentPage === 'crushes' && <CrushesPage token={token} />}
                 {currentPage === 'matches' && <MatchesPage token={token} />}
                 {currentPage === 'profile' && <ProfilePage user={user} token={token} />}
-            </div>
+            </main>
         </div>
+    );
+}
+
+function NavBtn({ active, onClick, icon, label }) {
+    return (
+        <button 
+            onClick={onClick}
+            style={{
+                display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 20px', borderRadius: '14px', border: 'none', cursor: 'pointer', transition: 'var(--transition)',
+                background: active ? 'var(--primary)' : 'transparent',
+                color: active ? 'white' : 'var(--text-muted)',
+                fontWeight: active ? '600' : '400',
+                width: '100%', textAlign: 'left'
+            }}
+        >
+            {icon}
+            <span>{label}</span>
+        </button>
     );
 }
 
@@ -593,48 +574,48 @@ function HomePage({ user, token }) {
 
     return (
         <div className="page home-page">
-            <div className="hero-section">
-                <h1>Welcome, {user.display_name}! 👋</h1>
-                <p>Your journey to discovering mutual crushes starts here</p>
+            <div className="hero-section" style={{ marginBottom: '40px' }}>
+                <h1 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '10px' }}>Hello, {user.display_name.split(' ')[0]}!</h1>
+                <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>Here's what's happening with your crushes today.</p>
             </div>
 
-            <div className="stats-grid">
-                <StatCard 
-                    icon="💭" 
-                    label="My Crushes" 
-                    value={stats.crushes}
-                    color="#FF6B9D"
-                />
-                <StatCard 
-                    icon="💕" 
-                    label="Mutual Matches" 
-                    value={stats.mutual_matches}
-                    color="#FF1493"
-                />
-                <StatCard 
-                    icon="👀" 
-                    label="Profile Views" 
-                    value={stats.profile_views}
-                    color="#FFB6C1"
-                />
+            <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '50px' }}>
+                <StatCard icon={<Heart size={24} />} label="My Crushes" value={stats.crushes} color="var(--primary)" />
+                <StatCard icon={<Heart size={24} fill="currentColor" />} label="Mutual Matches" value={stats.mutual_matches} color="#7000ff" />
+                <StatCard icon={<User size={24} />} label="Profile Views" value={stats.profile_views} color="#00d4ff" />
             </div>
 
             <section className="recent-matches">
-                <h2>Your Recent Matches 💕</h2>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>Recent Matches</h2>
+                </div>
                 {recentMatches.length > 0 ? (
-                    <div className="matches-list">
+                    <div className="matches-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
                         {recentMatches.map(match => (
                             <MatchCard key={match.id} match={match} />
                         ))}
                     </div>
                 ) : (
-                    <EmptyState 
-                        icon="💔"
-                        message="No matches yet"
-                        submessage="Start by declaring your crush!"
-                    />
+                    <div className="glass-card" style={{ padding: '60px', textAlign: 'center', borderRadius: '24px' }}>
+                        <div style={{ background: 'rgba(255,255,255,0.05)', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                            <Heart size={30} style={{ color: 'var(--text-muted)' }} />
+                        </div>
+                        <h3 style={{ marginBottom: '10px' }}>No matches yet</h3>
+                        <p style={{ color: 'var(--text-muted)' }}>Start searching and declaring your crushes to find a match!</p>
+                    </div>
                 )}
             </section>
+        </div>
+    );
+}
+
+function StatCard({ icon, label, value, color }) {
+    return (
+        <div className="glass-card" style={{ padding: '25px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: '-10px', right: '-10px', width: '60px', height: '60px', background: color, opacity: 0.1, borderRadius: '50%', filter: 'blur(20px)' }}></div>
+            <div style={{ color: color, marginBottom: '15px' }}>{icon}</div>
+            <div style={{ fontSize: '2rem', fontWeight: '800', marginBottom: '5px' }}>{value}</div>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: '500' }}>{label}</div>
         </div>
     );
 }
@@ -679,35 +660,33 @@ function SearchPage({ token }) {
     };
 
     return (
-        <div className="page search-page">
-            <div className="search-header">
-                <h2>Find Your Crush 🔍</h2>
-                <p>Search for users to declare your crush on</p>
+        <div className="page search-page fade-in">
+            <div className="search-header" style={{ marginBottom: '40px' }}>
+                <h2 style={{ fontSize: '2rem', fontWeight: '800', marginBottom: '10px' }}>Find Your Person</h2>
+                <p style={{ color: 'var(--text-muted)' }}>Search by name or username to declare your interest.</p>
             </div>
 
-            <form className="search-form" onSubmit={handleSearch}>
+            <form onSubmit={handleSearch} style={{ position: 'relative', marginBottom: '40px' }}>
+                <UserPlus size={20} style={{ position: 'absolute', left: '20px', top: '22px', color: 'var(--text-muted)' }} />
                 <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search by username or name..."
-                    className="search-input"
+                    placeholder="Who are you looking for?"
+                    className="input-premium"
+                    style={{ paddingLeft: '55px', height: '65px', fontSize: '1.1rem' }}
                 />
-                <button type="submit" className="btn btn-primary" disabled={loading}>
+                <button type="submit" className="btn-premium" style={{ position: 'absolute', right: '10px', top: '10px', height: '45px' }} disabled={loading}>
                     {loading ? 'Searching...' : 'Search'}
                 </button>
             </form>
 
-            {message && <div className="message-box">{message}</div>}
+            {message && <div className="glass-card" style={{ padding: '20px', textAlign: 'center', marginBottom: '30px', color: 'var(--text-muted)' }}>{message}</div>}
 
-            <div className="search-results">
-                {searchResults.length > 0 && (
-                    <div className="users-grid">
-                        {searchResults.map(user => (
-                            <UserCard key={user.id} user={user} token={token} />
-                        ))}
-                    </div>
-                )}
+            <div className="search-results" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '25px' }}>
+                {searchResults.map(user => (
+                    <UserCard key={user.id} user={user} token={token} />
+                ))}
             </div>
         </div>
     );
@@ -740,24 +719,26 @@ function CrushesPage({ token }) {
     };
 
     return (
-        <div className="page crushes-page">
-            <h2>Your Crushes 💘</h2>
-            <p className="subtitle">Your crushes are kept anonymous — you'll only be revealed to each other on a mutual match! 🔒</p>
+        <div className="page crushes-page fade-in">
+            <div style={{ marginBottom: '40px' }}>
+                <h2 style={{ fontSize: '2rem', fontWeight: '800', marginBottom: '10px' }}>Sent Declarations</h2>
+                <p style={{ color: 'var(--text-muted)' }}>Your declarations are private until matched. 🔒</p>
+            </div>
 
             {loading ? (
-                <div className="loading">Loading...</div>
+                <div style={{ textAlign: 'center', padding: '100px' }}><Clock className="loading-heart" /></div>
             ) : (
-                <div className="crushes-list">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '25px' }}>
                     {crushes.length > 0 ? (
                         crushes.map(crush => (
                             <CrushCard key={crush.id} crush={crush} />
                         ))
                     ) : (
-                        <EmptyState
-                            icon="💔"
-                            message="You haven't declared any crushes yet"
-                            submessage="Use the search to find someone special!"
-                        />
+                        <div className="glass-card" style={{ gridColumn: '1 / -1', padding: '60px', textAlign: 'center' }}>
+                            <Heart size={40} style={{ color: 'var(--text-muted)', marginBottom: '15px' }} />
+                            <h3>No active crushes</h3>
+                            <p style={{ color: 'var(--text-muted)' }}>Go to Search to declare your first crush!</p>
+                        </div>
                     )}
                 </div>
             )}
@@ -954,45 +935,6 @@ function StatCard({ icon, label, value, color }) {
     );
 }
 
-function MatchCard({ match }) {
-    return (
-        <div className="match-card">
-            <div className="match-header">
-                {match.profile_photo_url && (
-                    <img src={match.profile_photo_url} alt={match.display_name} />
-                )}
-                <div>
-                    <h3>{match.display_name}</h3>
-                    <p>@{match.username}</p>
-                </div>
-            </div>
-            <p className="match-date">Matched on {new Date(match.mutual_at).toLocaleDateString()}</p>
-            {match.user_1_reaction && <p className="reaction">Your reaction: {match.user_1_reaction}</p>}
-        </div>
-    );
-}
-
-function CrushCard({ crush }) {
-    return (
-        <div className="crush-card">
-            {crush.profile_photo_url && (
-                <img src={crush.profile_photo_url} alt={crush.crush_display_name} />
-            )}
-            <div className="crush-info">
-                <h3>{crush.crush_display_name}</h3>
-                <p>@{crush.crush_username}</p>
-                <div className="crush-status">
-                    {crush.crush_status === 'mutual' && <span className="badge mutual">💕 MUTUAL MATCH!</span>}
-                    {crush.crush_status === 'already_matched' && <span className="badge matched">💔 Already matched with someone else</span>}
-                    {crush.crush_status === 'crushing_on_someone_else' && <span className="badge other">👀 Crushing on someone else</span>}
-                    {crush.crush_status === 'no_crush_declared' && <span className="badge pending">⏳ No crush declared yet</span>}
-                </div>
-                <p className="confidence">Confidence: {crush.confidence_level}/10</p>
-            </div>
-        </div>
-    );
-}
-
 function UserCard({ user, token }) {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
@@ -1015,15 +957,8 @@ function UserCard({ user, token }) {
 
             const data = await response.json();
             if (data.success) {
-                if (data.crush.crush_status === 'mutual') {
-                    setMessage('🎉 MUTUAL CRUSH! You both like each other!');
-                } else if (data.crush.crush_status === 'already_matched') {
-                    setMessage('💔 Crush declared, but they are already matched with someone else.');
-                } else if (data.crush.crush_status === 'crushing_on_someone_else') {
-                    setMessage('💘 Crush declared! They seem to be crushing on someone else, but who knows! 🤫');
-                } else {
-                    setMessage('💘 Crush declared! They haven\'t declared a crush yet. Stay hopeful! 🤞');
-                }
+                setMessage('💘 Declaration Sent!');
+                setTimeout(() => setMessage(''), 3000);
             } else {
                 setMessage(data.error);
             }
@@ -1035,34 +970,96 @@ function UserCard({ user, token }) {
     };
 
     return (
-        <div className="user-card">
-            {user.profile_photo_url && (
-                <img src={user.profile_photo_url} alt={user.display_name} />
-            )}
-            <div className="user-info">
-                <h3>{user.display_name}</h3>
-                <p>@{user.username}</p>
-                <p className="bio-preview">{user.bio}</p>
-                <div className="crush-indicators">
-                    {user.you_have_crush_on_them && <span className="indicator">💕 You like them</span>}
-                    {!user.is_email_verified && <span className="indicator unverified" style={{ background: '#fee2e2', color: '#991b1b' }}>⚠️ Unverified</span>}
+        <div className="glass-card fade-in" style={{ padding: '25px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                <div style={{ width: '60px', height: '60px', borderRadius: '18px', background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+                    {user.profile_photo_url ? (
+                        <img src={user.profile_photo_url} alt={user.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                            <User size={24} />
+                        </div>
+                    )}
+                </div>
+                <div>
+                    <h3 style={{ fontWeight: '700', fontSize: '1.1rem' }}>{user.display_name}</h3>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>@{user.username}</p>
                 </div>
             </div>
-            {!user.you_have_crush_on_them && (
-                <button 
-                    className="btn btn-crush" 
-                    onClick={handleDeclareCrush}
-                    disabled={loading}
-                >
-                    {loading ? 'Declaring...' : '💘 Declare Crush'}
-                </button>
-            )}
-            {user.you_have_crush_on_them && (
-                <button className="btn btn-secondary" disabled>
-                    💕 Already Declared
-                </button>
-            )}
-            {message && <p className="message">{message}</p>}
+            
+            {user.bio && <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>{user.bio}</p>}
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+                {!user.is_identity_verified && <span style={{ padding: '4px 10px', borderRadius: '8px', background: 'rgba(255,193,7,0.1)', color: '#ffc107', fontSize: '0.7rem', fontWeight: '600' }}>Unverified</span>}
+                {user.you_have_crush_on_them && <span style={{ padding: '4px 10px', borderRadius: '8px', background: 'rgba(52,199,89,0.1)', color: '#34c759', fontSize: '0.7rem', fontWeight: '600' }}>Active Crush</span>}
+            </div>
+
+            <div style={{ marginTop: 'auto', paddingTop: '15px', borderTop: '1px solid var(--glass-border)' }}>
+                {user.you_have_crush_on_them ? (
+                    <button className="input-premium" disabled style={{ width: '100%', color: 'var(--primary)', borderColor: 'var(--primary)', cursor: 'default' }}>
+                        <CheckCircle size={16} />
+                        <span>Declared</span>
+                    </button>
+                ) : (
+                    <button className="btn-premium" onClick={handleDeclareCrush} disabled={loading} style={{ width: '100%' }}>
+                        {loading ? 'Sending...' : 'Declare Crush'}
+                    </button>
+                )}
+            </div>
+            {message && <p style={{ fontSize: '0.8rem', textAlign: 'center', color: 'var(--primary)', fontWeight: '600' }}>{message}</p>}
+        </div>
+    );
+}
+
+function MatchCard({ match }) {
+    return (
+        <div className="glass-card fade-in" style={{ padding: '25px', display: 'flex', alignItems: 'center', gap: '20px', borderLeft: '4px solid var(--primary)' }}>
+            <div style={{ width: '70px', height: '70px', borderRadius: '22px', background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+                {match.profile_photo_url ? (
+                    <img src={match.profile_photo_url} alt={match.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User size={30} /></div>
+                )}
+            </div>
+            <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ fontWeight: '700' }}>{match.display_name}</h3>
+                    <Heart size={20} fill="var(--primary)" color="var(--primary)" />
+                </div>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>@{match.username}</p>
+                <div style={{ marginTop: '10px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    Matched on {new Date(match.mutual_at).toLocaleDateString()}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function CrushCard({ crush }) {
+    const getStatusColor = (status) => {
+        if (status === 'mutual') return '#34c759';
+        if (status === 'already_matched') return '#ff3b30';
+        return '#ff9500';
+    };
+
+    return (
+        <div className="glass-card fade-in" style={{ padding: '25px' }}>
+            <div style={{ display: 'flex', gap: '15px', alignItems: 'center', marginBottom: '15px' }}>
+                <div style={{ width: '50px', height: '50px', borderRadius: '14px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Heart size={24} color={getStatusColor(crush.crush_status)} />
+                </div>
+                <div>
+                    <h3 style={{ fontWeight: '700' }}>{crush.crush_display_name}</h3>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>@{crush.crush_username}</p>
+                </div>
+            </div>
+            
+            <div style={{ padding: '12px', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--glass-border)' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '5px' }}>Status</div>
+                <div style={{ color: getStatusColor(crush.crush_status), fontWeight: '700', fontSize: '0.9rem' }}>
+                    {crush.crush_status === 'mutual' ? 'MATCHED' : crush.crush_status.replace(/_/g, ' ').toUpperCase()}
+                </div>
+            </div>
         </div>
     );
 }
