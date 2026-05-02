@@ -20,45 +20,44 @@ app.set('trust proxy', 1);
 // EMAIL + OTP UTILITIES (BREVO WEB API)
 // ============================================================================
 
-const Brevo = require('@getbrevo/brevo');
-const apiInstance = new Brevo.TransactionalEmailsApi();
-
-// Setup Brevo API Key
-if (process.env.BREVO_PASS) {
-    apiInstance.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_PASS);
-}
+const axios = require('axios');
 
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 const sendOTPEmail = async (email, otp, displayName) => {
     const fromEmail = process.env.BREVO_FROM || process.env.BREVO_USER;
-    
-    if (!process.env.BREVO_PASS) {
+    const apiKey = process.env.BREVO_PASS;
+
+    if (!apiKey) {
         console.log(`\n🔑 [DEV MODE] OTP for ${email}: ${otp}\n`);
         return;
     }
 
     try {
-        const sendSmtpEmail = new Brevo.SendSmtpEmail();
-        sendSmtpEmail.subject = "Verify your CrushDetector account";
-        sendSmtpEmail.htmlContent = `
-            <div style="font-family:Arial,sans-serif;max-width:500px;margin:auto;background:#1a1a2e;color:#fff;border-radius:12px;padding:32px">
-                <h1 style="color:#FF6B9D;margin:0 0 8px">💘 CrushDetector</h1>
-                <h2 style="margin:0 0 24px;color:#fff">Verify your email</h2>
-                <p style="color:#ccc">Hi ${displayName}, welcome! Use this code to verify your account:</p>
-                <div style="background:#FF6B9D;border-radius:8px;padding:20px;text-align:center;margin:24px 0">
-                    <span style="font-size:36px;font-weight:bold;letter-spacing:8px;color:#fff">${otp}</span>
+        await axios.post('https://api.brevo.com/v3/smtp/email', {
+            sender: { name: "CrushDetector", email: fromEmail },
+            to: [{ email: email, name: displayName }],
+            subject: "Verify your CrushDetector account",
+            htmlContent: `
+                <div style="font-family:Arial,sans-serif;max-width:500px;margin:auto;background:#1a1a2e;color:#fff;border-radius:12px;padding:32px">
+                    <h1 style="color:#FF6B9D;margin:0 0 8px">💘 CrushDetector</h1>
+                    <h2 style="margin:0 0 24px;color:#fff">Verify your email</h2>
+                    <p style="color:#ccc">Hi ${displayName}, welcome! Use this code to verify your account:</p>
+                    <div style="background:#FF6B9D;border-radius:8px;padding:20px;text-align:center;margin:24px 0">
+                        <span style="font-size:36px;font-weight:bold;letter-spacing:8px;color:#fff">${otp}</span>
+                    </div>
+                    <p style="color:#999;font-size:13px">This code expires in 15 minutes. Do not share it with anyone.</p>
                 </div>
-                <p style="color:#999;font-size:13px">This code expires in 15 minutes. Do not share it with anyone.</p>
-            </div>
-        `;
-        sendSmtpEmail.sender = { "name": "CrushDetector", "email": fromEmail };
-        sendSmtpEmail.to = [{ "email": email, "name": displayName }];
-
-        await apiInstance.sendTransacEmail(sendSmtpEmail);
-        console.log(`✓ Email sent via Brevo API to ${email}`);
+            `
+        }, {
+            headers: {
+                'api-key': apiKey,
+                'Content-Type': 'application/json'
+            }
+        });
+        console.log(`✓ Email sent via Brevo API (Axios) to ${email}`);
     } catch (err) {
-        console.error('❌ Brevo API Error:', err.message || err);
+        console.error('❌ Brevo API Error:', err.response ? err.response.data : err.message);
         throw err;
     }
 };
