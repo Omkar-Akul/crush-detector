@@ -120,8 +120,16 @@ const ipRegistrationLimiter = rateLimit({
 // MIDDLEWARE
 // ============================================================================
 
-// Security middleware
-app.use(helmet());
+// Security middleware with CSP for Cloudinary
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+            "img-src": ["'self'", "data:", "https://res.cloudinary.com"],
+            "script-src": ["'self'", "'unsafe-inline'"], // Allow some inline scripts for the dashboard
+        },
+    },
+}));
 
 // CORS configuration
 app.use(cors({
