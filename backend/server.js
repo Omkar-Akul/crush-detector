@@ -19,41 +19,46 @@ const PORT = process.env.PORT || 5000;
 // ============================================================================
 
 const emailTransporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, // Use SSL
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
-    },
-    tls: {
-        rejectUnauthorized: false
     }
 });
 
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 const sendOTPEmail = async (email, otp, displayName) => {
-    if (!process.env.EMAIL_USER) {
-        // Dev mode: log OTP to console instead of sending email
+    const userEmail = process.env.EMAIL_USER;
+    
+    if (!userEmail) {
         console.log(`\n🔑 [DEV MODE] OTP for ${email}: ${otp}\n`);
         return;
     }
-    const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev';
-    await emailTransporter.sendMail({
-        from: `"CrushDetector 💘" <${fromEmail}>`,
-        to: email,
-        subject: 'Verify your CrushDetector account',
-        html: `
-            <div style="font-family:Arial,sans-serif;max-width:500px;margin:auto;background:#1a1a2e;color:#fff;border-radius:12px;padding:32px">
-                <h1 style="color:#FF6B9D;margin:0 0 8px">💘 CrushDetector</h1>
-                <h2 style="margin:0 0 24px;color:#fff">Verify your email</h2>
-                <p style="color:#ccc">Hi ${displayName}, welcome! Use this code to verify your account:</p>
-                <div style="background:#FF6B9D;border-radius:8px;padding:20px;text-align:center;margin:24px 0">
-                    <span style="font-size:36px;font-weight:bold;letter-spacing:8px;color:#fff">${otp}</span>
+
+    try {
+        await emailTransporter.sendMail({
+            from: `"CrushDetector 💘" <${userEmail}>`,
+            to: email,
+            subject: 'Verify your CrushDetector account',
+            html: `
+                <div style="font-family:Arial,sans-serif;max-width:500px;margin:auto;background:#1a1a2e;color:#fff;border-radius:12px;padding:32px">
+                    <h1 style="color:#FF6B9D;margin:0 0 8px">💘 CrushDetector</h1>
+                    <h2 style="margin:0 0 24px;color:#fff">Verify your email</h2>
+                    <p style="color:#ccc">Hi ${displayName}, welcome! Use this code to verify your account:</p>
+                    <div style="background:#FF6B9D;border-radius:8px;padding:20px;text-align:center;margin:24px 0">
+                        <span style="font-size:36px;font-weight:bold;letter-spacing:8px;color:#fff">${otp}</span>
+                    </div>
+                    <p style="color:#999;font-size:13px">This code expires in 15 minutes. Do not share it with anyone.</p>
                 </div>
-                <p style="color:#999;font-size:13px">This code expires in 15 minutes. Do not share it with anyone.</p>
-            </div>
-        `
-    });
+            `
+        });
+    } catch (err) {
+        console.error('❌ SMTP Error:', err.message);
+        throw err; // Re-throw so the caller knows it failed
+    }
 };
 
 // Auto-create security and verification tables on startup
@@ -491,10 +496,16 @@ app.post('/api/auth/resend-otp', authenticateToken, resendOtpLimiter, async (req
             `INSERT INTO email_otps (user_id, otp_code, expires_at) VALUES ($1, $2, NOW() + INTERVAL '15 minutes')`,
             [userId, otp]
         );
-        await sendOTPEmail(userResult.rows[0].email, otp, userResult.rows[0].display_name);
+        try {
+            await sendOTPEmail(userResult.rows[0].email, otp, userResult.rows[0].display_name);
+            console.log(`✓ Resend OTP sent successfully to ${userResult.rows[0].email}`);
+        } catch (emailError) {
+            console.error('❌ Resend SMTP Error:', emailError.message);
+        }
         
         res.json({ success: true, message: 'Verification code sent!' });
     } catch (error) {
+        console.error('Resend OTP error:', error);
         res.status(500).json({ success: false, error: 'Internal server error' });
     }
 });
