@@ -15,6 +15,8 @@
             --text-dim: #a0a0c0;
             --success: #00c853;
             --error: #ff3d00;
+            --glass: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -31,15 +33,41 @@
             display: flex; 
             justify-content: space-between; 
             align-items: center; 
-            margin-bottom: 40px;
-            background: rgba(255, 255, 255, 0.05);
+            margin-bottom: 30px;
+            background: var(--glass);
             padding: 20px 30px;
             border-radius: 16px;
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--glass-border);
         }
         h1 { font-size: 24px; font-weight: 700; color: var(--primary-light); }
-        .stats { font-size: 14px; color: var(--text-dim); }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+        }
+        .tab-btn {
+            padding: 12px 24px;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            color: var(--text-dim);
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: all 0.3s;
+        }
+        .tab-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .section { display: none; }
+        .section.active { display: block; }
 
         .requests-grid {
             display: grid;
@@ -51,90 +79,90 @@
             background: var(--card-bg);
             border-radius: 20px;
             overflow: hidden;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            display: flex;
-            flex-direction: column;
+            border: 1px solid var(--glass-border);
+            transition: transform 0.3s ease;
         }
-        .card:hover { 
-            transform: translateY(-5px); 
-            box-shadow: 0 15px 35px rgba(0,0,0,0.5);
-            border-color: rgba(255, 20, 147, 0.3);
-        }
+        .card:hover { transform: translateY(-5px); border-color: var(--primary-light); }
 
         .id-image-container {
             width: 100%;
-            height: 250px;
+            height: 200px;
             background: #000;
             display: flex;
             align-items: center;
             justify-content: center;
             overflow: hidden;
             position: relative;
-            cursor: pointer;
         }
-        .id-image {
+        .id-image { width: 100%; height: 100%; object-fit: contain; }
+
+        .data-table {
             width: 100%;
-            height: 100%;
-            object-fit: contain;
-            transition: transform 0.3s ease;
-        }
-        .id-image-container:hover .id-image { transform: scale(1.05); }
-        
-        .badge {
-            position: absolute;
-            top: 15px;
-            left: 15px;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            background: var(--primary);
+            border-collapse: collapse;
+            background: var(--glass);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--glass-border);
         }
 
-        .card-body { padding: 20px; flex-grow: 1; }
-        .user-name { font-size: 18px; font-weight: 600; margin-bottom: 5px; }
-        .user-email { font-size: 14px; color: var(--text-dim); margin-bottom: 15px; }
-        
-        .detail-row { margin-bottom: 10px; font-size: 14px; }
-        .detail-label { color: var(--text-dim); margin-right: 8px; }
-        .detail-value { font-weight: 500; }
-
-        .social-link {
-            color: #00acee;
-            text-decoration: none;
-            word-break: break-all;
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+            border-radius: 16px;
+            margin-bottom: 20px;
+            -webkit-overflow-scrolling: touch;
         }
 
-        .card-actions {
-            padding: 20px;
-            display: flex;
-            gap: 10px;
-            background: rgba(0,0,0,0.2);
+        .data-table th, .data-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--glass-border);
+            white-space: nowrap;
         }
+        .data-table th { background: rgba(255,255,255,0.02); color: var(--text-dim); font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
+        .data-table tr:hover { background: rgba(255,255,255,0.03); }
+
         .btn {
-            flex: 1;
-            padding: 12px;
+            padding: 8px 16px;
             border: none;
-            border-radius: 10px;
+            border-radius: 8px;
             font-weight: 600;
             cursor: pointer;
-            transition: opacity 0.2s;
+            font-size: 13px;
         }
         .btn-approve { background: var(--success); color: white; }
         .btn-reject { background: var(--error); color: white; }
-        .btn:hover { opacity: 0.8; }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-delete { background: rgba(255, 59, 48, 0.1); color: #ff3b30; border: 1px solid rgba(255, 59, 48, 0.2); }
+        .btn-delete:hover { background: #ff3b30; color: white; }
 
-        .empty-state {
-            text-align: center;
-            padding: 100px;
-            color: var(--text-dim);
-            grid-column: 1 / -1;
+        .empty-state { text-align: center; padding: 50px; color: var(--text-dim); }
+
+        /* Responsive Adjustments */
+        @media (max-width: 768px) {
+            body { padding: 20px 10px; }
+            header { 
+                flex-direction: column; 
+                text-align: center; 
+                gap: 15px; 
+                padding: 20px;
+            }
+            h1 { font-size: 20px; }
+            .tabs {
+                padding-bottom: 15px;
+                margin-bottom: 20px;
+            }
+            .tab-btn {
+                padding: 10px 18px;
+                font-size: 14px;
+            }
+            .requests-grid {
+                grid-template-columns: 1fr;
+            }
+            .card {
+                margin-bottom: 15px;
+            }
         }
 
-        /* Modal for full image */
         #modal {
             display: none;
             position: fixed;
@@ -145,19 +173,86 @@
             justify-content: center;
             padding: 20px;
         }
-        #modal img { max-width: 100%; max-height: 100%; border-radius: 12px; }
+        #modal img { max-width: 90%; max-height: 90%; border-radius: 12px; }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>💘 CrushDetector Admin</h1>
-            <div class="stats" id="pending-count">Loading requests...</div>
+            <div id="stats-summary" style="font-size: 14px; color: var(--text-dim);">System Live</div>
         </header>
 
-        <div class="requests-grid" id="grid">
-            <!-- Cards will be injected here -->
+        <div class="tabs">
+            <button class="tab-btn active" data-target="verifications">Pending ID Verifications</button>
+            <button class="tab-btn" data-target="users">All Users</button>
+            <button class="tab-btn" data-target="crushes">All Crushes</button>
+            <button class="tab-btn" data-target="matches">Mutual Matches</button>
         </div>
+
+        <section id="verifications" class="section active">
+            <div class="requests-grid" id="verifications-grid">
+                <div class="empty-state">Loading verifications...</div>
+            </div>
+        </section>
+
+        <section id="users" class="section">
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Joined</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-table">
+                        <tr><td colspan="6" class="empty-state">Loading users...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="crushes" class="section">
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>From</th>
+                            <th>To</th>
+                            <th>Confidence</th>
+                            <th>Type</th>
+                            <th>Date</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="crushes-table">
+                        <tr><td colspan="6" class="empty-state">Loading crushes...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="matches" class="section">
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>User 1</th>
+                            <th>User 2</th>
+                            <th>Status</th>
+                            <th>Matched At</th>
+                        </tr>
+                    </thead>
+                    <tbody id="matches-table">
+                        <tr><td colspan="4" class="empty-state">Loading matches...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
     </div>
 
     <div id="modal" onclick="this.style.display='none'">

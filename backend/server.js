@@ -134,13 +134,14 @@ const sendOTPEmail = async (email, otp, displayName) => {
             ALTER TABLE users ADD COLUMN IF NOT EXISTS social_link TEXT;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS is_identity_verified BOOLEAN DEFAULT false;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS college_name VARCHAR(100);
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'user';
         `);
 
         // 3. Verification requests table
         await db.query(`
             CREATE TABLE IF NOT EXISTS verification_requests (
                 id SERIAL PRIMARY KEY,
-                user_id INTEGER REFERENCES users(id),
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
                 status VARCHAR(20) DEFAULT 'pending',
                 submitted_at TIMESTAMP DEFAULT NOW(),
                 reviewed_at TIMESTAMP,
@@ -190,6 +191,41 @@ const sendOTPEmail = async (email, otp, displayName) => {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+
+        // 7. Crush declarations table
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS crush_declarations (
+                id SERIAL PRIMARY KEY,
+                user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                crush_username VARCHAR(50) NOT NULL,
+                crush_user_id INT REFERENCES users(id) ON DELETE CASCADE,
+                confidence_level INT DEFAULT 5,
+                is_anonymous BOOLEAN DEFAULT false,
+                status VARCHAR(20) DEFAULT 'active',
+                declared_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Migration: Ensure existing tables have ON DELETE CASCADE
+        try {
+            await db.query(`
+                ALTER TABLE verification_requests DROP CONSTRAINT IF EXISTS verification_requests_user_id_fkey;
+                ALTER TABLE verification_requests ADD CONSTRAINT verification_requests_user_id_fkey 
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+                
+                ALTER TABLE crush_declarations DROP CONSTRAINT IF EXISTS crush_declarations_user_id_fkey;
+                ALTER TABLE crush_declarations ADD CONSTRAINT crush_declarations_user_id_fkey 
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+
+                ALTER TABLE crush_declarations DROP CONSTRAINT IF EXISTS crush_declarations_crush_user_id_fkey;
+                ALTER TABLE crush_declarations ADD CONSTRAINT crush_declarations_crush_user_id_fkey 
+                    FOREIGN KEY (crush_user_id) REFERENCES users(id) ON DELETE CASCADE;
+            `);
+        } catch (mErr) {
+            console.log('Migration note (usually safe to ignore):', mErr.message);
+        }
+
+        await db.query("UPDATE users SET role = 'admin' WHERE username = 'omkar'");
 
         console.log('✓ All database tables ready');
     } catch (err) {
@@ -1252,6 +1288,71 @@ app.post(`/api/${ADMIN_PATH}/reject/:id`, async (req, res) => {
         const userId = req.params.id;
         await db.query("UPDATE verification_requests SET status = 'rejected', reviewed_at = NOW() WHERE user_id = $1", [userId]);
         res.json({ success: true, message: 'User rejected' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/[SECRET]/users
+app.get(`/api/${ADMIN_PATH}/users`, async (req, res) => {
+    try {
+        const result = await db.query('SELECT id, username, email, display_name, role, is_identity_verified, created_at FROM users ORDER BY created_at DESC');
+        res.json({ success: true, users: result.rows });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/[SECRET]/crushes
+app.get(`/api/${ADMIN_PATH}/crushes`, async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT cd.id, cd.user_id, u1.username as sender, cd.crush_username as target, 
+                   cd.confidence_level, cd.is_anonymous, cd.status, cd.declared_at
+            FROM crush_declarations cd
+            JOIN users u1 ON cd.user_id = u1.id
+            ORDER BY cd.declared_at DESC
+        `);
+        res.json({ success: true, crushes: result.rows });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/[SECRET]/matches
+app.get(`/api/${ADMIN_PATH}/matches`, async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT m.id, u1.username as user1, u2.username as user2, 
+                   m.match_status, m.mutual_at, m.created_at
+            FROM matches m
+            JOIN users u1 ON m.user_1_id = u1.id
+            JOIN users u2 ON m.user_2_id = u2.id
+            ORDER BY m.created_at DESC
+        `);
+        res.json({ success: true, matches: result.rows });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// DELETE /api/[SECRET]/users/:id
+app.delete(`/api/${ADMIN_PATH}/users/:id`, async (req, res) => {
+    try {
+        const userId = req.params.id;
+        await db.query('DELETE FROM users WHERE id = $1', [userId]);
+        res.json({ success: true, message: 'User deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// DELETE /api/[SECRET]/crushes/:id
+app.delete(`/api/${ADMIN_PATH}/crushes/:id`, async (req, res) => {
+    try {
+        const crushId = req.params.id;
+        await db.query('DELETE FROM crush_declarations WHERE id = $1', [crushId]);
+        res.json({ success: true, message: 'Crush deleted successfully' });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
