@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps, no-unused-vars */
 import React, { useState, useEffect } from 'react';
 import './index.css';
+import './App.css';
 import { Heart, LogOut, User, ShieldCheck, Mail, Lock, UserPlus, LogIn, ChevronRight, CheckCircle, Clock, Trash2, ShieldAlert } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
@@ -473,8 +474,8 @@ function VerificationModal({ token, onClose, onSuccess, isInitial = false }) {
     };
 
     return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-            <div className="glass-card fade-in" style={{ maxWidth: '500px', width: '100%', padding: '40px', position: 'relative', borderRadius: '28px', border: '1px solid rgba(255,255,255,0.1)' }}>
+        <div className="modal-overlay">
+            <div className="modal-container fade-in">
                 <button onClick={onClose} style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(255,255,255,0.05)', border: 'none', color: 'white', cursor: 'pointer', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                 
                 <div style={{ textAlign: 'center', marginBottom: '30px' }}>
@@ -539,6 +540,9 @@ function VerificationModal({ token, onClose, onSuccess, isInitial = false }) {
                                 </div>
                             )}
                         </label>
+                        <p className="helper-text" style={{ textAlign: 'center', marginTop: '12px' }}>
+                            💡 If you face issues uploading, try using a different browser (Chrome, Safari, or Opera).
+                        </p>
                     </div>
 
                     <button type="submit" className="btn-premium" style={{ width: '100%', height: '55px', fontSize: '1rem' }} disabled={loading}>
@@ -573,7 +577,7 @@ function DashboardPage({ user, token, setCurrentPage, currentPage }) {
             )}
 
             <aside className="glass-card" style={{ height: 'calc(100vh - 120px)', padding: '20px', position: 'sticky', top: '100px', borderRadius: '24px' }}>
-                <nav style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <nav className="dashboard-nav">
                     <NavBtn active={currentPage === 'dashboard'} onClick={() => setCurrentPage('dashboard')} icon={<Heart size={18} />} label="Discover" />
                     <NavBtn active={currentPage === 'search'} onClick={() => setCurrentPage('search')} icon={<UserPlus size={18} />} label="Add Crush" />
                     <NavBtn active={currentPage === 'crushes'} onClick={() => setCurrentPage('crushes')} icon={<Clock size={18} />} label="My Crushes" />
@@ -624,13 +628,7 @@ function NavBtn({ active, onClick, icon, label }) {
     return (
         <button 
             onClick={onClick}
-            style={{
-                display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 20px', borderRadius: '14px', border: 'none', cursor: 'pointer', transition: 'var(--transition)',
-                background: active ? 'var(--primary)' : 'transparent',
-                color: active ? 'white' : 'var(--text-muted)',
-                fontWeight: active ? '600' : '400',
-                width: '100%', textAlign: 'left'
-            }}
+            className={`nav-item ${active ? 'active' : ''}`}
         >
             {icon}
             <span>{label}</span>
