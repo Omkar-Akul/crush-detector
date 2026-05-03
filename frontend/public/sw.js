@@ -1,23 +1,10 @@
-const CACHE_NAME = 'crush-detector-v2'; // Changed version to bust cache
-const urlsToCache = [
-  '/',
-  '/index.html',
-  '/manifest.json'
-];
+const CACHE_NAME = 'crush-detector-v3';
 
 self.addEventListener('install', event => {
-  // Force the waiting service worker to become the active service worker.
   self.skipWaiting();
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        return cache.addAll(urlsToCache);
-      })
-  );
 });
 
 self.addEventListener('activate', event => {
-  // Tell the active service worker to take control of the page immediately.
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
@@ -32,11 +19,33 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
+  // Network-first strategy for navigation requests (HTML)
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          return caches.open(CACHE_NAME).then(cache => {
+            cache.put(event.request, response.clone());
+            return response;
+          });
+        })
+        .catch(() => {
+          return caches.match(event.request);
+        })
+    );
+    return;
+  }
+
+  // Cache-first strategy for everything else (JS, CSS, images)
   event.respondWith(
     caches.match(event.request)
       .then(response => {
-        // Fall back to network
-        return response || fetch(event.request);
+        return response || fetch(event.request).then(networkResponse => {
+          return caches.open(CACHE_NAME).then(cache => {
+            cache.put(event.request, networkResponse.clone());
+            return networkResponse;
+          });
+        });
       })
   );
 });
