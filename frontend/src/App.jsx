@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import './index.css';
 import './App.css';
-import { Heart, LogOut, User, ShieldCheck, Mail, Lock, UserPlus, LogIn, ChevronRight, CheckCircle, Clock, Trash2, ShieldAlert } from 'lucide-react';
+import { Heart, LogOut, User, ShieldCheck, Mail, Lock, UserPlus, LogIn, ChevronRight, CheckCircle, Clock, Trash2, ShieldAlert, Menu } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
@@ -561,6 +561,12 @@ function VerificationModal({ token, onClose, onSuccess, isInitial = false }) {
 
 function DashboardPage({ user, token, setCurrentPage, currentPage }) {
     const [showReapplyModal, setShowReapplyModal] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+    const handleNavClick = (page) => {
+        setCurrentPage(page);
+        setIsMobileMenuOpen(false);
+    };
 
     return (
         <div className="dashboard-layout" style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '30px', padding: '20px' }}>
@@ -576,13 +582,24 @@ function DashboardPage({ user, token, setCurrentPage, currentPage }) {
                 />
             )}
 
-            <aside className="glass-card" style={{ height: 'calc(100vh - 120px)', padding: '20px', position: 'sticky', top: '100px', borderRadius: '24px' }}>
+            <button className="mobile-menu-btn" onClick={() => setIsMobileMenuOpen(true)}>
+                <Menu size={24} />
+            </button>
+
+            {isMobileMenuOpen && <div className="sidebar-overlay" onClick={() => setIsMobileMenuOpen(false)} />}
+
+            <aside className={`glass-card sidebar ${isMobileMenuOpen ? 'open' : ''}`} style={{ height: 'calc(100vh - 120px)', padding: '20px', position: 'sticky', top: '100px', borderRadius: '24px' }}>
+                <div className="mobile-sidebar-header">
+                    <div className="logo" style={{ fontSize: '1.2rem' }}>💘 CrushDetector</div>
+                    <button onClick={() => setIsMobileMenuOpen(false)} style={{ background: 'none', border: 'none', color: 'white' }}>✕</button>
+                </div>
+
                 <nav className="dashboard-nav">
-                    <NavBtn active={currentPage === 'dashboard'} onClick={() => setCurrentPage('dashboard')} icon={<Heart size={18} />} label="Discover" />
-                    <NavBtn active={currentPage === 'search'} onClick={() => setCurrentPage('search')} icon={<UserPlus size={18} />} label="Add Crush" />
-                    <NavBtn active={currentPage === 'crushes'} onClick={() => setCurrentPage('crushes')} icon={<Clock size={18} />} label="My Crushes" />
-                    <NavBtn active={currentPage === 'matches'} onClick={() => setCurrentPage('matches')} icon={<Heart size={18} fill={currentPage === 'matches' ? 'currentColor' : 'none'} />} label="Matches" />
-                    <NavBtn active={currentPage === 'profile'} onClick={() => setCurrentPage('profile')} icon={<User size={18} />} label="Settings" />
+                    <NavBtn active={currentPage === 'dashboard'} onClick={() => handleNavClick('dashboard')} icon={<Heart size={18} />} label="Discover" />
+                    <NavBtn active={currentPage === 'search'} onClick={() => handleNavClick('search')} icon={<UserPlus size={18} />} label="Add Crush" />
+                    <NavBtn active={currentPage === 'crushes'} onClick={() => handleNavClick('crushes')} icon={<Clock size={18} />} label="My Crushes" />
+                    <NavBtn active={currentPage === 'matches'} onClick={() => handleNavClick('matches')} icon={<Heart size={18} fill={currentPage === 'matches' ? 'currentColor' : 'none'} />} label="Matches" />
+                    <NavBtn active={currentPage === 'profile'} onClick={() => handleNavClick('profile')} icon={<User size={18} />} label="Settings" />
                 </nav>
 
                 {!user.is_identity_verified && (
