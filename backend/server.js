@@ -269,7 +269,7 @@ app.use(cors({
         } else {
             // Use environment variable for production
             const allowedOrigin = process.env.CORS_ORIGIN || 'http://localhost:3000';
-            if (origin === allowedOrigin) {
+            if (origin === allowedOrigin || origin.includes('onrender.com') || origin.includes('crush-detector')) {
                 callback(null, true);
             } else {
                 callback(new Error('Not allowed by CORS'));
@@ -285,13 +285,14 @@ app.use(cors({
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 100, // limit each IP to 100 requests per windowMs
-    message: 'Too many requests from this IP, please try again later.'
+    message: { success: false, error: 'Too many requests from this IP, please try again later.' }
 });
 
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 5, // stricter limit for auth endpoints
-    skipSuccessfulRequests: true
+    skipSuccessfulRequests: true,
+    message: { success: false, error: 'Too many authentication attempts, please try again later.' }
 });
 
 app.use(limiter);
