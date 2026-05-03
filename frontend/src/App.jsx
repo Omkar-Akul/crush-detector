@@ -508,7 +508,7 @@ function VerificationModal({ token, onClose, onSuccess, isInitial = false }) {
                             id="student-id-upload"
                             onChange={e => setIdPhoto(e.target.files[0])} 
                             accept="image/*" 
-                            style={{ position: 'absolute', width: '100px', height: '0', opacity: 0, pointerEvents: 'none' }}
+                            style={{ position: 'absolute', width: '0.1px', height: '0.1px', opacity: 0, overflow: 'hidden', zIndex: -1 }}
                         />
                         
                         <label 
