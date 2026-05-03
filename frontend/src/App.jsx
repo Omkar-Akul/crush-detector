@@ -118,6 +118,7 @@ function App() {
                 )}
             </main>
             {notification && <Notification message={notification.message} type={notification.type} />}
+            <InstallBanner />
         </div>
     );
 }
