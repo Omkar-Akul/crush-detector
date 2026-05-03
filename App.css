@@ -990,7 +990,7 @@ input:focus, textarea:focus {
 
 @media (max-width: 480px) {
     .main-content {
-        padding: 15px 10px;
+        padding: 10px 5px;
     }
 
     .page {
@@ -1007,7 +1007,7 @@ input:focus, textarea:focus {
     }
 
     .logo {
-        font-size: 20px;
+        font-size: 16px;
     }
 
     .welcome-text {
@@ -1019,15 +1019,15 @@ input:focus, textarea:focus {
     }
 
     .stat-card {
-        padding: 15px 10px;
+        padding: 10px 5px;
     }
 
     .stat-icon {
-        font-size: 28px;
+        font-size: 24px;
     }
 
     .stat-value {
-        font-size: 24px;
+        font-size: 22px;
     }
 
     .tabs {
@@ -1035,7 +1035,7 @@ input:focus, textarea:focus {
     }
 
     .tab {
-        padding: 10px 12px;
-        font-size: 13px;
+        padding: 5px 5px;
+        font-size: 12px;
     }
 }
