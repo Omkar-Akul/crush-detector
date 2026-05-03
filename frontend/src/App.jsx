@@ -340,21 +340,14 @@ function RegisterPage({ setToken, setCurrentUser, setCurrentPage, onSwitchPage }
         email: '',
         password: '',
         display_name: '',
-        date_of_birth: '',
-        verification_type: 'college', 
-        college_name: '',
-        social_link: ''
+        date_of_birth: ''
     });
-    const [idPhoto, setIdPhoto] = useState(null);
+
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
-
-    const handleFileChange = (e) => {
-        setIdPhoto(e.target.files[0]);
     };
 
     const handleRegister = async (e) => {
@@ -368,28 +361,11 @@ function RegisterPage({ setToken, setCurrentUser, setCurrentPage, onSwitchPage }
             return;
         }
 
-        if (formData.verification_type === 'college') {
-            if (!formData.college_name || !idPhoto) {
-                setError('College name and ID card photo are required.');
-                setLoading(false);
-                return;
-            }
-        } else if (formData.verification_type === 'social') {
-            if (!formData.social_link) {
-                setError('Instagram or LinkedIn link is required.');
-                setLoading(false);
-                return;
-            }
-        }
-
         try {
-            const data = new FormData();
-            Object.keys(formData).forEach(key => data.append(key, formData[key]));
-            if (idPhoto) data.append('student_id_photo', idPhoto);
-
             const response = await fetch(`${API_URL}/api/auth/register`, {
                 method: 'POST',
-                body: data
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
             });
 
             const result = await response.json();
@@ -415,31 +391,12 @@ function RegisterPage({ setToken, setCurrentUser, setCurrentPage, onSwitchPage }
             <div className="auth-card glass-card" style={{ maxWidth: '550px', padding: '40px' }}>
                 <div style={{ textAlign: 'center', marginBottom: '32px' }}>
                     <h2 style={{ fontSize: '2rem', fontWeight: '700', marginBottom: '10px' }}>Join the Circle</h2>
-                    <p style={{ color: 'var(--text-muted)' }}>Secure and private identity verification</p>
+                    <p style={{ color: 'var(--text-muted)' }}>Find out who likes you back!</p>
                 </div>
 
                 {error && <div className="error-message glass-card" style={{ background: 'rgba(255, 59, 48, 0.1)', color: '#ff3b30', padding: '12px', borderRadius: '12px', marginBottom: '20px', textAlign: 'center' }}>{error}</div>}
 
                 <form onSubmit={handleRegister}>
-                    <div style={{ display: 'flex', gap: '10px', marginBottom: '24px' }}>
-                        <button 
-                            type="button"
-                            className="input-premium"
-                            onClick={() => setFormData({...formData, verification_type: 'college'})}
-                            style={{ flex: 1, borderColor: formData.verification_type === 'college' ? 'var(--primary)' : 'var(--glass-border)', background: formData.verification_type === 'college' ? 'rgba(255, 51, 102, 0.1)' : 'none' }}
-                        >
-                            College Student
-                        </button>
-                        <button 
-                            type="button"
-                            className="input-premium"
-                            onClick={() => setFormData({...formData, verification_type: 'social'})}
-                            style={{ flex: 1, borderColor: formData.verification_type === 'social' ? 'var(--primary)' : 'var(--glass-border)', background: formData.verification_type === 'social' ? 'rgba(255, 51, 102, 0.1)' : 'none' }}
-                        >
-                            External User
-                        </button>
-                    </div>
-
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '20px' }}>
                         <input type="text" name="username" className="input-premium" value={formData.username} onChange={handleChange} placeholder="Username" required />
                         <input type="text" name="display_name" className="input-premium" value={formData.display_name} onChange={handleChange} placeholder="Full Name" required />
@@ -448,33 +405,13 @@ function RegisterPage({ setToken, setCurrentUser, setCurrentPage, onSwitchPage }
                     <input type="email" name="email" className="input-premium" value={formData.email} onChange={handleChange} placeholder="Email Address" style={{ marginBottom: '20px' }} required />
                     <input type="password" name="password" className="input-premium" value={formData.password} onChange={handleChange} placeholder="Password (min 8 chars)" style={{ marginBottom: '20px' }} required />
 
-                    {formData.verification_type === 'college' ? (
-                        <div className="glass-card" style={{ padding: '20px', marginBottom: '20px', background: 'rgba(255, 255, 255, 0.02)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px', color: 'var(--primary)' }}>
-                                <ShieldCheck size={18} />
-                                <span style={{ fontWeight: '600' }}>Student Verification</span>
-                            </div>
-                            <input type="text" name="college_name" className="input-premium" value={formData.college_name} onChange={handleChange} placeholder="College/University Name" style={{ marginBottom: '15px' }} />
-                            <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', display: 'block' }}>Upload Student ID Card Photo</label>
-                            <input type="file" onChange={handleFileChange} accept="image/*" style={{ fontSize: '0.8rem' }} />
-                        </div>
-                    ) : (
-                        <div className="glass-card" style={{ padding: '20px', marginBottom: '20px', background: 'rgba(255, 255, 255, 0.02)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px', color: 'var(--primary)' }}>
-                                <UserPlus size={18} />
-                                <span style={{ fontWeight: '600' }}>Social Verification</span>
-                            </div>
-                            <input type="url" name="social_link" className="input-premium" value={formData.social_link} onChange={handleChange} placeholder="Instagram or LinkedIn Profile URL" />
-                        </div>
-                    )}
-
                     <div style={{ marginBottom: '30px' }}>
                         <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', display: 'block' }}>Date of Birth</label>
                         <input type="date" name="date_of_birth" className="input-premium" value={formData.date_of_birth} onChange={handleChange} />
                     </div>
 
                     <button type="submit" className="btn-premium" style={{ width: '100%' }} disabled={loading}>
-                        {loading ? 'Processing...' : 'Create Verified Account'}
+                        {loading ? 'Processing...' : 'Create Account'}
                         <ChevronRight size={18} />
                     </button>
                 </form>
@@ -493,29 +430,29 @@ function RegisterPage({ setToken, setCurrentUser, setCurrentPage, onSwitchPage }
 // REAPPLY MODAL
 // ============================================================================
 
-function ReapplyModal({ token, onClose, onSuccess }) {
+function VerificationModal({ token, onClose, onSuccess, isInitial = false }) {
     const [formData, setFormData] = useState({
         verification_type: 'college',
-        college_name: '',
-        social_link: ''
+        college_name: ''
     });
     const [idPhoto, setIdPhoto] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const fileInputRef = React.useRef(null);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!idPhoto) {
+            setError('Please select or take a photo of your ID');
+            return;
+        }
         setLoading(true);
         setError('');
 
         const data = new FormData();
-        data.append('verification_type', formData.verification_type);
-        if (formData.verification_type === 'college') {
-            data.append('college_name', formData.college_name);
-            if (idPhoto) data.append('student_id_photo', idPhoto);
-        } else {
-            data.append('social_link', formData.social_link);
-        }
+        data.append('verification_type', 'college');
+        data.append('college_name', formData.college_name);
+        data.append('student_id_photo', idPhoto);
 
         try {
             const res = await fetch(`${API_URL}/api/users/reapply`, {
@@ -527,7 +464,7 @@ function ReapplyModal({ token, onClose, onSuccess }) {
             if (result.success) {
                 onSuccess();
             } else {
-                setError(result.error || 'Failed to reapply');
+                setError(result.error || 'Failed to submit verification');
             }
         } catch {
             setError('Connection error');
@@ -537,31 +474,75 @@ function ReapplyModal({ token, onClose, onSuccess }) {
     };
 
     return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-            <div className="glass-card fade-in" style={{ maxWidth: '500px', width: '100%', padding: '30px', position: 'relative' }}>
-                <button onClick={onClose} style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>✕</button>
-                <h2 style={{ marginBottom: '20px' }}>Re-submit Verification</h2>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+            <div className="glass-card fade-in" style={{ maxWidth: '500px', width: '100%', padding: '40px', position: 'relative', borderRadius: '28px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <button onClick={onClose} style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(255,255,255,0.05)', border: 'none', color: 'white', cursor: 'pointer', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                 
-                {error && <div style={{ color: '#ff3b30', marginBottom: '15px', fontSize: '0.9rem' }}>{error}</div>}
+                <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+                    <div style={{ background: 'rgba(255, 51, 102, 0.1)', width: '60px', height: '60px', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                        <ShieldCheck className="primary-color" size={32} />
+                    </div>
+                    <h2 style={{ fontSize: '1.8rem', fontWeight: '700', marginBottom: '10px' }}>{isInitial ? 'Identity Verification' : 'Re-submit Verification'}</h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Upload your Student ID to access all features.</p>
+                </div>
+                
+                {error && <div style={{ color: '#ff3b30', background: 'rgba(255, 59, 48, 0.1)', padding: '12px', borderRadius: '12px', marginBottom: '20px', fontSize: '0.9rem', textAlign: 'center', border: '1px solid rgba(255, 59, 48, 0.2)' }}>{error}</div>}
 
                 <form onSubmit={handleSubmit}>
-                    <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-                        <button type="button" onClick={() => setFormData({...formData, verification_type: 'college'})} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: '1px solid var(--glass-border)', background: formData.verification_type === 'college' ? 'rgba(255,51,102,0.1)' : 'none', color: 'white' }}>College</button>
-                        <button type="button" onClick={() => setFormData({...formData, verification_type: 'social'})} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: '1px solid var(--glass-border)', background: formData.verification_type === 'social' ? 'rgba(255,51,102,0.1)' : 'none', color: 'white' }}>Social</button>
+                    <div className="form-group" style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: '500' }}>College/University Name</label>
+                        <input 
+                            type="text" 
+                            placeholder="e.g. Stanford University" 
+                            className="input-premium" 
+                            value={formData.college_name} 
+                            onChange={e => setFormData({...formData, college_name: e.target.value})} 
+                            required 
+                        />
                     </div>
 
-                    {formData.verification_type === 'college' ? (
-                        <>
-                            <input type="text" placeholder="College Name" className="input-premium" value={formData.college_name} onChange={e => setFormData({...formData, college_name: e.target.value})} style={{ marginBottom: '15px' }} required />
-                            <label style={{ display: 'block', fontSize: '0.8rem', color: '#999', marginBottom: '10px' }}>Upload New ID Photo</label>
-                            <input type="file" onChange={e => setIdPhoto(e.target.files[0])} style={{ marginBottom: '20px' }} required />
-                        </>
-                    ) : (
-                        <input type="url" placeholder="Social Profile Link" className="input-premium" value={formData.social_link} onChange={e => setFormData({...formData, social_link: e.target.value})} style={{ marginBottom: '20px' }} required />
-                    )}
+                    <div className="form-group" style={{ marginBottom: '30px' }}>
+                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '12px', fontWeight: '500' }}>Student ID Card Photo</label>
+                        
+                        <input 
+                            type="file" 
+                            ref={fileInputRef}
+                            onChange={e => setIdPhoto(e.target.files[0])} 
+                            accept="image/*" 
+                            style={{ display: 'none' }}
+                        />
+                        
+                        <div 
+                            onClick={() => fileInputRef.current.click()}
+                            style={{ 
+                                border: '2px dashed var(--glass-border)', 
+                                borderRadius: '16px', 
+                                padding: '30px 20px', 
+                                textAlign: 'center', 
+                                cursor: 'pointer',
+                                background: idPhoto ? 'rgba(52, 199, 89, 0.05)' : 'rgba(255,255,255,0.02)',
+                                transition: 'all 0.3s ease',
+                                borderColor: idPhoto ? '#34c759' : 'var(--glass-border)'
+                            }}
+                        >
+                            {idPhoto ? (
+                                <div style={{ color: '#34c759' }}>
+                                    <CheckCircle size={32} style={{ marginBottom: '10px' }} />
+                                    <p style={{ fontSize: '0.9rem', fontWeight: '600' }}>{idPhoto.name}</p>
+                                    <p style={{ fontSize: '0.75rem', opacity: 0.8 }}>Click to change photo</p>
+                                </div>
+                            ) : (
+                                <div style={{ color: 'var(--text-muted)' }}>
+                                    <UserPlus size={32} style={{ marginBottom: '10px' }} />
+                                    <p style={{ fontSize: '0.9rem', fontWeight: '500' }}>Click to Take Photo or Upload</p>
+                                    <p style={{ fontSize: '0.75rem', opacity: 0.7 }}>Supports Camera & Gallery</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
 
-                    <button type="submit" className="btn-premium" style={{ width: '100%' }} disabled={loading}>
-                        {loading ? 'Submitting...' : 'Submit Re-application'}
+                    <button type="submit" className="btn-premium" style={{ width: '100%', height: '55px', fontSize: '1rem' }} disabled={loading}>
+                        {loading ? 'Submitting...' : 'Submit for Verification'}
                     </button>
                 </form>
             </div>
@@ -580,12 +561,13 @@ function DashboardPage({ user, token, setCurrentPage, currentPage }) {
     return (
         <div className="dashboard-layout" style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '30px', padding: '20px' }}>
             {showReapplyModal && (
-                <ReapplyModal 
+                <VerificationModal 
                     token={token} 
+                    isInitial={!user.verification_status}
                     onClose={() => setShowReapplyModal(false)} 
                     onSuccess={() => {
                         setShowReapplyModal(false);
-                        window.location.reload(); // Refresh to get new status
+                        window.location.reload();
                     }} 
                 />
             )}
@@ -604,20 +586,22 @@ function DashboardPage({ user, token, setCurrentPage, currentPage }) {
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
                             {user.verification_status === 'rejected' ? <ShieldAlert size={16} /> : <Clock size={16} />}
                             <span style={{ fontWeight: '600', fontSize: '0.8rem' }}>
-                                {user.verification_status === 'rejected' ? 'Verification Rejected' : 'Verification Pending'}
+                                {user.verification_status === 'rejected' ? 'Verification Rejected' : user.verification_status === 'pending' ? 'Verification Pending' : 'Verify Identity'}
                             </span>
                         </div>
                         <p style={{ fontSize: '0.7rem', opacity: 0.8, marginBottom: '10px' }}>
                             {user.verification_status === 'rejected' 
                                 ? 'Your ID was not approved. Please re-apply with a clearer photo.' 
-                                : `We're reviewing your ${user.verification_type} ID.`}
+                                : user.verification_status === 'pending'
+                                ? `We're reviewing your ${user.verification_type} ID.`
+                                : 'Verify your student ID to declare crushes and see matches.'}
                         </p>
-                        {user.verification_status === 'rejected' && (
+                        {(user.verification_status === 'rejected' || !user.verification_status) && (
                             <button 
                                 onClick={() => setShowReapplyModal(true)}
-                                style={{ width: '100%', padding: '8px', borderRadius: '8px', background: '#ff3b30', color: 'white', border: 'none', fontSize: '0.7rem', fontWeight: '600', cursor: 'pointer' }}
+                                style={{ width: '100%', padding: '8px', borderRadius: '8px', background: user.verification_status === 'rejected' ? '#ff3b30' : 'var(--primary)', color: 'white', border: 'none', fontSize: '0.7rem', fontWeight: '600', cursor: 'pointer' }}
                             >
-                                Re-apply Now
+                                {user.verification_status === 'rejected' ? 'Re-apply Now' : 'Verify Now'}
                             </button>
                         )}
                     </div>

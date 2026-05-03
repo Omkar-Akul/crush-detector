@@ -382,20 +382,8 @@ app.post('/api/auth/register', upload.single('student_id_photo'), authLimiter, i
         const student_id_url = req.file ? req.file.path : null;
         
         // Validation
-        if (!username || !email || !password || !display_name || !verification_type) {
+        if (!username || !email || !password || !display_name) {
             return res.status(400).json({ success: false, error: 'Missing required fields' });
-        }
-
-        // Verification Specific Validation
-        if (verification_type === 'college') {
-            if (!college_name || !student_id_url) {
-                return res.status(400).json({ success: false, error: 'College name and ID card photo are required for students' });
-            }
-            // Optional: Force college email domain check if you have a list of domains
-        } else if (verification_type === 'social') {
-            if (!social_link) {
-                return res.status(400).json({ success: false, error: 'Instagram or LinkedIn link is required for external users' });
-            }
         }
         
         if (password.length < 8) {
@@ -425,18 +413,13 @@ app.post('/api/auth/register', upload.single('student_id_photo'), authLimiter, i
             RETURNING id, username, email, display_name`,
             [
                 username, email, hashedPassword, display_name, date_of_birth, 
-                'active', false, verification_type, social_link || null, 
-                student_id_url, college_name || null, false
+                'active', false, 'college', null, 
+                null, null, false
             ]
         );
         
         const user = result.rows[0];
 
-        // Create initial verification request
-        await db.query(
-            'INSERT INTO verification_requests (user_id, status) VALUES ($1, $2)',
-            [user.id, 'pending']
-        );
         
         // Generate tokens
         const accessToken = generateAccessToken(user);
