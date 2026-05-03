@@ -206,6 +206,198 @@ const sendOTPEmail = async (email, otp, displayName) => {
             )
         `);
 
+        // 8. Couple Games / Streaks tables
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS would_you_rather (
+                id SERIAL PRIMARY KEY,
+                option_1 TEXT NOT NULL,
+                option_2 TEXT NOT NULL
+            )
+        `);
+        
+        // Insert dummy WYR if empty
+        const wyrCheck = await db.query('SELECT count(*) FROM would_you_rather');
+        if (parseInt(wyrCheck.rows[0].count) === 0) {
+            await db.query(`
+                INSERT INTO would_you_rather (option_1, option_2) VALUES 
+                ('Travel to the past', 'Travel to the future'),
+                ('Live without music', 'Live without TV'),
+                ('Be able to fly', 'Be invisible'),
+                ('Have a pause button for life', 'Have a rewind button for life'),
+                ('Always have to say everything on your mind', 'Never speak again'),
+                ('Be completely alone for 5 years', 'Never be alone for 5 years'),
+                ('Have unlimited free food', 'Have unlimited free flights'),
+                ('Be a famous director', 'Be a famous actor'),
+                ('Always be 10 minutes late', 'Always be 20 minutes early'),
+                ('Win the lottery', 'Live twice as long'),
+                ('Never use a smartphone again', 'Never use a computer again'),
+                ('Be a genius everyone thinks is an idiot', 'Be an idiot everyone thinks is a genius'),
+                ('Give up sweets forever', 'Give up spicy food forever'),
+                ('Have the ability to read minds', 'Have the ability to see the future'),
+                ('Only be able to whisper', 'Only be able to shout'),
+                ('Have a photographic memory', 'Have an extra 50 IQ points'),
+                ('Never age physically', 'Never age mentally'),
+                ('Live in a treehouse', 'Live in a houseboat'),
+                ('Give up social media forever', 'Give up streaming services forever'),
+                ('Have an unlimited gift card to a restaurant', 'Have an unlimited gift card to a clothing store'),
+                ('Be able to breathe underwater', 'Be able to talk to animals'),
+                ('Have your dream job but make minimum wage', 'Have a terrible job but be a millionaire'),
+                ('Never wear shoes again', 'Never wear socks again'),
+                ('Only eat pizza for a year', 'Only eat tacos for a year'),
+                ('Always have a full battery on your phone', 'Always have a full tank of gas'),
+                ('Be an olympic gold medalist', 'Be a nobel prize winner'),
+                ('Never have to clean again', 'Never have to cook again'),
+                ('Have the power of teleportation', 'Have the power of telekinesis'),
+                ('Be best friends with your favorite celebrity', 'Win a million dollars'),
+                ('Never need to sleep', 'Never need to eat'),
+                ('Have an elephant as a pet', 'Have a tiger as a pet'),
+                ('Live without the internet for a week', 'Live without your best friend for a week'),
+                ('Be universally loved but poor', 'Be universally hated but rich'),
+                ('Never be able to lie', 'Always believe every lie you hear'),
+                ('Only listen to one song for the rest of your life', 'Only watch one movie for the rest of your life'),
+                ('Have a time machine', 'Have a spaceship'),
+                ('Be the funniest person in the room', 'Be the smartest person in the room'),
+                ('Always be cold', 'Always be hot'),
+                ('Have the ability to control fire', 'Have the ability to control water'),
+                ('Never have to work again', 'Work at a job you absolutely love'),
+                ('Be able to change the past', 'Be able to see the future'),
+                ('Have a personal chef', 'Have a personal maid'),
+                ('Be an amazing singer', 'Be an amazing dancer'),
+                ('Live in the mountains', 'Live on the beach'),
+                ('Be famous for something silly', 'Be unknown for something important'),
+                ('Always wear winter clothes in summer', 'Always wear summer clothes in winter'),
+                ('Have unlimited money but you can only spend it on others', 'Have $50,000 to spend only on yourself'),
+                ('Never get angry', 'Never get sad'),
+                ('Be able to stop time', 'Be able to fast forward time'),
+                ('Live in a haunted house', 'Live in a house with no electricity'),
+                ('Be a superhero', 'Be a supervillain'),
+                ('Have fingers for toes', 'Have toes for fingers'),
+                ('Only eat cold food', 'Only eat hot food'),
+                ('Never be able to ask a question', 'Never be able to answer a question'),
+                ('Have a flying carpet', 'Have a car that can drive underwater'),
+                ('Be the best player on a losing team', 'Be the worst player on a winning team'),
+                ('Always have a song stuck in your head', 'Always have an itch you can''t scratch'),
+                ('Be able to talk to your past self', 'Be able to talk to your future self'),
+                ('Have the ability to heal others', 'Have the ability to heal yourself instantly'),
+                ('Live in a world with magic', 'Live in a world with advanced sci-fi technology')
+            `);
+        }
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS daily_questions (
+                id SERIAL PRIMARY KEY,
+                question_text TEXT NOT NULL
+            )
+        `);
+        
+        // Insert some dummy questions if empty
+        const qCheck = await db.query('SELECT count(*) FROM daily_questions');
+        if (parseInt(qCheck.rows[0].count) === 0) {
+            await db.query(`
+                INSERT INTO daily_questions (question_text) VALUES 
+                ('What is your favorite memory of us?'),
+                ('What is your partner''s favorite food?'),
+                ('Where would you want to travel together?'),
+                ('What made you smile today?'),
+                ('What is a movie you both love?'),
+                ('What is the best gift you have ever received?'),
+                ('Describe your partner in 3 words.'),
+                ('What is a weird habit you both have?'),
+                ('What is your favorite thing about your partner?'),
+                ('If you could relive one day with your partner, what would it be?'),
+                ('What is a goal you want to achieve together?'),
+                ('What is your partner''s biggest pet peeve?'),
+                ('What is the funniest thing your partner has done?'),
+                ('What is your partner''s favorite song right now?'),
+                ('What is your favorite physical feature of your partner?'),
+                ('What is a new hobby you would like to try together?'),
+                ('What is your partner''s dream job?'),
+                ('What is your favorite way to spend a lazy Sunday?'),
+                ('What is the most romantic thing your partner has done?'),
+                ('What is a secret you haven''t told your partner?'),
+                ('What is your partner''s go-to comfort food?'),
+                ('What is your favorite inside joke?'),
+                ('What is a place you want to visit with your partner?'),
+                ('What is your partner''s biggest fear?'),
+                ('What is the best advice your partner has given you?'),
+                ('What is a skill you want to learn together?'),
+                ('What is your partner''s favorite holiday?'),
+                ('What is your favorite childhood memory?'),
+                ('What is a movie that always makes you cry?'),
+                ('What is your partner''s spirit animal?'),
+                ('What is your favorite quote about love?'),
+                ('What is a book you think your partner should read?'),
+                ('What is your partner''s favorite season?'),
+                ('What is a risk you took that paid off?'),
+                ('What is your partner''s proudest accomplishment?'),
+                ('What is your favorite way to show affection?'),
+                ('What is a childhood dream you still have?'),
+                ('What is your partner''s favorite dessert?'),
+                ('What is the best concert you have been to together?'),
+                ('What is a cause you both care about?'),
+                ('What is your partner''s favorite color?'),
+                ('What is a tradition you want to start together?'),
+                ('What is your partner''s guilty pleasure?'),
+                ('What is a historical event you wish you could have witnessed?'),
+                ('What is your partner''s favorite TV show?'),
+                ('What is your favorite piece of clothing your partner wears?'),
+                ('What is a compliment you love receiving from your partner?'),
+                ('What is your partner''s favorite drink?'),
+                ('What is a fear you have overcome together?'),
+                ('What is your favorite memory of your first date?'),
+                ('What is a challenge you want to tackle together?'),
+                ('What is your partner''s favorite superhero?'),
+                ('What is a lesson you learned from your partner?'),
+                ('What is your favorite way to relax after a long day?'),
+                ('What is a talent your partner has that you admire?'),
+                ('What is your partner''s favorite board game?'),
+                ('What is a milestone you are looking forward to?'),
+                ('What is your favorite thing to cook together?'),
+                ('What is your partner''s favorite childhood toy?'),
+                ('What is a place you feel most at peace?'),
+                ('What is your partner''s favorite flower?')
+            `);
+        }
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS couple_streaks (
+                id SERIAL PRIMARY KEY,
+                match_id INT NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+                current_streak INT DEFAULT 0,
+                highest_streak INT DEFAULT 0,
+                last_played_date DATE,
+                current_question_id INT REFERENCES daily_questions(id) ON DELETE SET NULL,
+                current_wyr_id INT REFERENCES would_you_rather(id) ON DELETE SET NULL,
+                current_game_type VARCHAR(20) DEFAULT 'question',
+                current_question_date DATE,
+                UNIQUE(match_id)
+            )
+        `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS couple_answers (
+                id SERIAL PRIMARY KEY,
+                match_id INT NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+                question_id INT NOT NULL REFERENCES daily_questions(id) ON DELETE CASCADE,
+                user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                answer_text TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(match_id, question_id, user_id)
+            )
+        `);
+
+        // Migration: Ensure new schema fields exist
+        try {
+            await db.query(`
+                ALTER TABLE daily_questions DROP CONSTRAINT IF EXISTS daily_questions_date_active_key;
+                ALTER TABLE daily_questions DROP COLUMN IF EXISTS date_active;
+                ALTER TABLE couple_streaks ADD COLUMN IF NOT EXISTS current_question_id INT REFERENCES daily_questions(id) ON DELETE SET NULL;
+                ALTER TABLE couple_streaks ADD COLUMN IF NOT EXISTS current_question_date DATE;
+            `);
+        } catch (mErr) {
+            console.log('Migration note (usually safe to ignore):', mErr.message);
+        }
+
         // Migration: Ensure existing tables have ON DELETE CASCADE
         try {
             await db.query(`
@@ -1369,6 +1561,208 @@ app.delete(`/api/${ADMIN_PATH}/crushes/:id`, async (req, res) => {
         res.json({ success: true, message: 'Crush deleted successfully' });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+
+// ============================================================================
+// ROUTES - COUPLE GAMES / DAILY QUESTION
+// ============================================================================
+
+// GET /api/games/daily-question/:matchId
+app.get('/api/games/daily-question/:matchId', authenticateToken, async (req, res) => {
+    try {
+        const matchId = req.params.matchId;
+        const userId = req.user.userId;
+
+        // Verify user is in this match
+        const matchCheck = await db.query(
+            'SELECT * FROM matches WHERE id = $1 AND (user_1_id = $2 OR user_2_id = $2)',
+            [matchId, userId]
+        );
+
+        if (matchCheck.rows.length === 0) {
+            return res.status(403).json({ success: false, error: 'Unauthorized' });
+        }
+        
+        const match = matchCheck.rows[0];
+        const partnerId = match.user_1_id === userId ? match.user_2_id : match.user_1_id;
+
+        // Ensure streak record exists
+        let streakData;
+        const streakResult = await db.query('SELECT * FROM couple_streaks WHERE match_id = $1', [matchId]);
+        if (streakResult.rows.length === 0) {
+            const newStreak = await db.query(
+                'INSERT INTO couple_streaks (match_id) VALUES ($1) RETURNING *',
+                [matchId]
+            );
+            streakData = newStreak.rows[0];
+        } else {
+            streakData = streakResult.rows[0];
+        }
+
+        const today = new Date().toISOString().split('T')[0];
+        const assignedDate = streakData.current_question_date ? new Date(streakData.current_question_date).toISOString().split('T')[0] : null;
+
+        let question;
+        let questionId = streakData.current_question_id;
+
+        if (assignedDate !== today || !questionId) {
+            // Need to assign a new question for today
+            // Find a question they haven't answered yet
+            const newQuestionResult = await db.query(`
+                SELECT id, question_text FROM daily_questions 
+                WHERE id NOT IN (
+                    SELECT question_id FROM couple_answers WHERE match_id = $1
+                )
+                ORDER BY RANDOM() LIMIT 1
+            `, [matchId]);
+
+            if (newQuestionResult.rows.length > 0) {
+                question = newQuestionResult.rows[0];
+                questionId = question.id;
+                
+                // Update streak table with assignment
+                await db.query(
+                    'UPDATE couple_streaks SET current_question_id = $1, current_question_date = CURRENT_DATE WHERE match_id = $2',
+                    [questionId, matchId]
+                );
+            } else {
+                // If they answered all questions, just pick a random one as fallback
+                const fallbackResult = await db.query('SELECT id, question_text FROM daily_questions ORDER BY RANDOM() LIMIT 1');
+                question = fallbackResult.rows[0];
+                questionId = question.id;
+                await db.query(
+                    'UPDATE couple_streaks SET current_question_id = $1, current_question_date = CURRENT_DATE WHERE match_id = $2',
+                    [questionId, matchId]
+                );
+            }
+        } else {
+            // Fetch the assigned question
+            const qRes = await db.query('SELECT id, question_text FROM daily_questions WHERE id = $1', [questionId]);
+            question = qRes.rows[0];
+        }
+
+        // Check who has answered
+        const answersResult = await db.query(
+            'SELECT user_id, answer_text FROM couple_answers WHERE match_id = $1 AND question_id = $2',
+            [matchId, question.id]
+        );
+
+        let myAnswer = null;
+        let partnerAnswerText = null;
+        let partnerHasAnswered = false;
+
+        answersResult.rows.forEach(ans => {
+            if (ans.user_id === userId) {
+                myAnswer = ans.answer_text;
+            } else if (ans.user_id === partnerId) {
+                partnerHasAnswered = true;
+                partnerAnswerText = ans.answer_text;
+            }
+        });
+
+        res.json({
+            success: true,
+            question: {
+                id: question.id,
+                text: question.question_text
+            },
+            status: {
+                myAnswer,
+                partnerHasAnswered,
+                // Only reveal partner's answer if both have answered
+                partnerAnswer: (myAnswer && partnerHasAnswered) ? partnerAnswerText : null,
+                bothAnswered: !!(myAnswer && partnerHasAnswered),
+                streak: streakData.current_streak || 0
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching daily question:', error);
+        res.status(500).json({ success: false, error: 'Could not fetch daily question' });
+    }
+});
+
+// POST /api/games/daily-question/answer
+app.post('/api/games/daily-question/answer', authenticateToken, async (req, res) => {
+    try {
+        const { matchId, questionId, answerText } = req.body;
+        const userId = req.user.userId;
+
+        // Validation
+        if (!matchId || !questionId || !answerText || !answerText.trim()) {
+            return res.status(400).json({ success: false, error: 'Missing required fields' });
+        }
+
+        // Verify match
+        const matchCheck = await db.query(
+            'SELECT * FROM matches WHERE id = $1 AND (user_1_id = $2 OR user_2_id = $2)',
+            [matchId, userId]
+        );
+
+        if (matchCheck.rows.length === 0) {
+            return res.status(403).json({ success: false, error: 'Unauthorized' });
+        }
+
+        // Insert answer
+        await db.query(
+            `INSERT INTO couple_answers (match_id, question_id, user_id, answer_text) 
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (match_id, question_id, user_id) 
+             DO UPDATE SET answer_text = $4`,
+            [matchId, questionId, userId, answerText.trim()]
+        );
+
+        // Check if both have answered now
+        const answersCount = await db.query(
+            'SELECT COUNT(*) FROM couple_answers WHERE match_id = $1 AND question_id = $2',
+            [matchId, questionId]
+        );
+
+        let streakUpdated = false;
+        let newStreak = 0;
+
+        if (parseInt(answersCount.rows[0].count) === 2) {
+            // Both answered! Update streak
+            // Ensure we don't increment multiple times for the same day (handled by last_played_date)
+            const streakCheck = await db.query('SELECT current_streak, last_played_date FROM couple_streaks WHERE match_id = $1', [matchId]);
+            
+            if (streakCheck.rows.length === 0) {
+                // First time
+                await db.query(
+                    'INSERT INTO couple_streaks (match_id, current_streak, highest_streak, last_played_date) VALUES ($1, 1, 1, CURRENT_DATE)',
+                    [matchId]
+                );
+                streakUpdated = true;
+                newStreak = 1;
+            } else {
+                const streakData = streakCheck.rows[0];
+                // Only increment if last_played_date is not today
+                const today = new Date().toISOString().split('T')[0];
+                const lastPlayed = streakData.last_played_date ? new Date(streakData.last_played_date).toISOString().split('T')[0] : null;
+
+                if (lastPlayed !== today) {
+                    const currentStreak = streakData.current_streak + 1;
+                    const highestStreak = Math.max(currentStreak, streakCheck.rows[0].highest_streak || 0);
+                    
+                    await db.query(
+                        'UPDATE couple_streaks SET current_streak = $1, highest_streak = $2, last_played_date = CURRENT_DATE WHERE match_id = $3',
+                        [currentStreak, highestStreak, matchId]
+                    );
+                    streakUpdated = true;
+                    newStreak = currentStreak;
+                } else {
+                    newStreak = streakData.current_streak;
+                }
+            }
+        }
+
+        res.json({ success: true, message: 'Answer submitted successfully', streakUpdated, streak: newStreak });
+
+    } catch (error) {
+        console.error('Error submitting answer:', error);
+        res.status(500).json({ success: false, error: 'Could not submit answer' });
     }
 });
 
