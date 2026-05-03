@@ -2,7 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import './index.css';
 import './App.css';
-import { Heart, LogOut, User, ShieldCheck, Mail, Lock, UserPlus, LogIn, ChevronRight, CheckCircle, Clock, Trash2, ShieldAlert, Menu, X, Search } from 'lucide-react';
+import './ChatStyles.css';
+import { Heart, LogOut, User, ShieldCheck, Mail, Lock, UserPlus, LogIn, ChevronRight, CheckCircle, Clock, Trash2, ShieldAlert, Menu, X, Search, MessageCircle } from 'lucide-react';
+import ChatModal from './ChatModal';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
@@ -645,7 +647,7 @@ function DashboardPage({ user, token, setCurrentPage, currentPage, showNotificat
                 {currentPage === 'dashboard' && <HomePage user={user} token={token} />}
                 {currentPage === 'search' && <SearchPage token={token} showNotification={showNotification} />}
                 {currentPage === 'crushes' && <CrushesPage token={token} />}
-                {currentPage === 'matches' && <MatchesPage token={token} />}
+                {currentPage === 'matches' && <MatchesPage token={token} currentUser={user} />}
                 {currentPage === 'profile' && <ProfilePage user={user} token={token} />}
             </main>
         </div>
@@ -711,7 +713,10 @@ function HomePage({ user, token }) {
                 {recentMatches.length > 0 ? (
                     <div className="items-grid">
                         {recentMatches.map(match => (
-                            <MatchCard key={match.id} match={match} />
+                            <MatchCard key={match.id} match={match} onChatClick={() => {
+                                // For recent matches, just tell them to go to the Matches tab
+                                alert("Please go to the 'Matches' tab in the left menu to chat!");
+                            }} />
                         ))}
                     </div>
                 ) : (
@@ -868,9 +873,10 @@ function CrushesPage({ token }) {
 // MATCHES PAGE
 // ============================================================================
 
-function MatchesPage({ token }) {
+function MatchesPage({ token, currentUser }) {
     const [matches, setMatches] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [selectedMatch, setSelectedMatch] = useState(null);
 
     useEffect(() => {
         fetchMatches();
@@ -905,7 +911,7 @@ function MatchesPage({ token }) {
             ) : matches.length > 0 ? (
                 <div className="items-grid">
                     {matches.map(match => (
-                        <MatchCard key={match.id} match={match} />
+                        <MatchCard key={match.id} match={match} onChatClick={() => setSelectedMatch(match)} />
                     ))}
                 </div>
             ) : (
@@ -913,6 +919,15 @@ function MatchesPage({ token }) {
                     icon={<Heart size={30} />}
                     message="You don't have any matches yet"
                     submessage="Keep exploring and declaring crushes!"
+                />
+            )}
+
+            {selectedMatch && (
+                <ChatModal 
+                    match={selectedMatch} 
+                    token={token} 
+                    userId={currentUser.id}
+                    onClose={() => setSelectedMatch(null)} 
                 />
             )}
         </div>
@@ -1133,7 +1148,7 @@ function CrushCard({ crush }) {
     );
 }
 
-function MatchCard({ match }) {
+function MatchCard({ match, onChatClick }) {
     return (
         <div className="match-card">
             <img src={match.profile_photo_url || `https://api.dicebear.com/6.x/initials/svg?seed=${match.username}`} alt={match.display_name} className="card-image" />
@@ -1142,7 +1157,10 @@ function MatchCard({ match }) {
                 <p>@{match.username}</p>
                 <div className="card-footer">
                     <span className="badge mutual">Matched!</span>
-                    <small style={{color: 'var(--text-muted)'}}>Matched on {new Date(match.matched_at).toLocaleDateString()}</small>
+                    <button className="btn-chat" onClick={onChatClick} title="Chat" style={{marginLeft: '10px', fontSize: '0.9rem', display: 'flex', gap: '5px', padding: '5px 15px', borderRadius: '20px', width: 'auto', height: 'auto'}}>
+                        <MessageCircle size={18} /> Chat
+                    </button>
+                    <small style={{color: 'var(--text-muted)'}}>Matched on {new Date(match.mutual_at || match.created_at).toLocaleDateString()}</small>
                 </div>
             </div>
         </div>
