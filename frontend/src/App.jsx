@@ -438,7 +438,6 @@ function VerificationModal({ token, onClose, onSuccess, isInitial = false }) {
     const [idPhoto, setIdPhoto] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const fileInputRef = React.useRef(null);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -506,15 +505,16 @@ function VerificationModal({ token, onClose, onSuccess, isInitial = false }) {
                         
                         <input 
                             type="file" 
-                            ref={fileInputRef}
+                            id="student-id-upload"
                             onChange={e => setIdPhoto(e.target.files[0])} 
                             accept="image/*" 
-                            style={{ display: 'none' }}
+                            style={{ position: 'absolute', width: '100px', height: '0', opacity: 0, pointerEvents: 'none' }}
                         />
                         
-                        <div 
-                            onClick={() => fileInputRef.current.click()}
+                        <label 
+                            htmlFor="student-id-upload"
                             style={{ 
+                                display: 'block',
                                 border: '2px dashed var(--glass-border)', 
                                 borderRadius: '16px', 
                                 padding: '30px 20px', 
@@ -538,7 +538,7 @@ function VerificationModal({ token, onClose, onSuccess, isInitial = false }) {
                                     <p style={{ fontSize: '0.75rem', opacity: 0.7 }}>Supports Camera & Gallery</p>
                                 </div>
                             )}
-                        </div>
+                        </label>
                     </div>
 
                     <button type="submit" className="btn-premium" style={{ width: '100%', height: '55px', fontSize: '1rem' }} disabled={loading}>
