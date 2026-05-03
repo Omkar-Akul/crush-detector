@@ -1036,6 +1036,6 @@ input:focus, textarea:focus {
 
     .tab {
         padding: 5px 5px;
-        font-size: 1px;
+        font-size: 12px;
     }
 }
