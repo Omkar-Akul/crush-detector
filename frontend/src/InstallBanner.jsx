@@ -14,20 +14,18 @@ const InstallBanner = () => {
     if (isAppInstalled) return;
 
     // Detect iOS
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
+    const userAgent = window.navigator.userAgent || window.navigator.vendor || window.opera;
+    const isIosDevice = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
     setIsIOS(isIosDevice);
 
-    if (isIosDevice) {
-        // Show iOS instructions after a slight delay
-        setTimeout(() => setShowBanner(true), 2000);
-    }
+    // ALWAYS show the banner after 2 seconds if they are not in standalone mode, 
+    // just to make sure users know it exists!
+    setTimeout(() => setShowBanner(true), 2000);
 
-    // Android / Chrome: Listen for install prompt
+    // Android / Chrome: Listen for the official install prompt
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      setShowBanner(true);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -39,12 +37,16 @@ const InstallBanner = () => {
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
+      // Official Chrome install prompt is ready
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
         setShowBanner(false);
       }
       setDeferredPrompt(null);
+    } else {
+      // Fallback for Android/Chrome if prompt isn't ready
+      alert("To install, tap the 3 dots (Menu) in the top right of your browser and select 'Install app' or 'Add to Home screen'.");
     }
   };
 
@@ -53,7 +55,8 @@ const InstallBanner = () => {
   return (
     <div style={bannerStyle}>
       <div style={contentStyle}>
-        <img src="/logo192.png" alt="Icon" style={iconStyle} />
+        <img src="/logo192.png" alt="Icon" style={iconStyle} 
+             onError={(e) => e.target.src = 'https://api.dicebear.com/6.x/shapes/svg?seed=crush'} />
         <div style={textContainer}>
           <h4 style={titleStyle}>Install CrushDetector</h4>
           {isIOS ? (
@@ -86,7 +89,7 @@ const bannerStyle = {
   justifyContent: 'space-between',
   alignItems: 'center',
   boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-  zIndex: 9999,
+  zIndex: 999999,
   color: 'white'
 };
 
@@ -100,7 +103,8 @@ const contentStyle = {
 const iconStyle = {
   width: '40px',
   height: '40px',
-  borderRadius: '8px'
+  borderRadius: '8px',
+  backgroundColor: '#FF6B9D'
 };
 
 const textContainer = {
@@ -112,7 +116,7 @@ const textContainer = {
 
 const titleStyle = {
   margin: 0,
-  fontSize: '14px',
+  fontSize: '15px',
   fontWeight: 'bold',
   color: '#FF6B9D'
 };
@@ -120,7 +124,8 @@ const titleStyle = {
 const descStyle = {
   margin: '4px 0 0 0',
   fontSize: '12px',
-  color: '#ccc'
+  color: '#ccc',
+  lineHeight: '1.3'
 };
 
 const btnStyle = {
@@ -130,7 +135,8 @@ const btnStyle = {
   padding: '8px 16px',
   borderRadius: '20px',
   fontWeight: 'bold',
-  cursor: 'pointer'
+  cursor: 'pointer',
+  whiteSpace: 'nowrap'
 };
 
 const closeBtn = {
@@ -139,8 +145,10 @@ const closeBtn = {
   color: '#999',
   fontSize: '16px',
   cursor: 'pointer',
-  padding: '0 0 0 8px',
-  alignSelf: 'flex-start'
+  padding: '8px',
+  alignSelf: 'flex-start',
+  marginTop: '-8px',
+  marginRight: '-8px'
 };
 
 export default InstallBanner;
