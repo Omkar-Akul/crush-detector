@@ -15,6 +15,14 @@ function App() {
     const [currentPage, setCurrentPage] = useState('login');
     const [token, setToken] = useState(localStorage.getItem('accessToken'));
     const [appLoading, setAppLoading] = useState(!!localStorage.getItem('accessToken'));
+    const [notification, setNotification] = useState(null);
+
+    const showNotification = (message, type = 'info', duration = 3000) => {
+        setNotification({ message, type });
+        setTimeout(() => {
+            setNotification(null);
+        }, duration);
+    };
 
     useEffect(() => {
         if (token) {
@@ -102,13 +110,34 @@ function App() {
                         token={token}
                         setCurrentPage={setCurrentPage}
                         currentPage={currentPage}
+                        showNotification={showNotification}
                     />
                 )}
             </main>
+            {notification && <Notification message={notification.message} type={notification.type} />}
         </div>
     );
 }
 
+
+// ============================================================================
+// NOTIFICATION COMPONENT
+// ============================================================================
+
+function Notification({ message, type }) {
+    const icon = {
+        success: <CheckCircle size={20} />,
+        error: <ShieldAlert size={20} />,
+        info: <Heart size={20} />,
+    }[type];
+
+    return (
+        <div className={`notification toast-${type}`}>
+            <div className="toast-icon">{icon}</div>
+            <p>{message}</p>
+        </div>
+    );
+}
 
 // ============================================================================
 // OTP VERIFICATION PAGE
@@ -539,7 +568,7 @@ function VerificationModal({ token, onClose, onSuccess, isInitial = false }) {
 // DASHBOARD PAGE
 // ============================================================================
 
-function DashboardPage({ user, token, setCurrentPage, currentPage }) {
+function DashboardPage({ user, token, setCurrentPage, currentPage, showNotification }) {
     const [showReapplyModal, setShowReapplyModal] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -581,6 +610,7 @@ function DashboardPage({ user, token, setCurrentPage, currentPage }) {
                     <NavBtn active={currentPage === 'dashboard'} onClick={() => handleNavClick('dashboard')} icon={<Heart size={18} />} label="Discover" />
                     <NavBtn active={currentPage === 'search'} onClick={() => handleNavClick('search')} icon={<Search size={18} />} label="Find People" />
                     <NavBtn active={currentPage === 'crushes'} onClick={() => handleNavClick('crushes')} icon={<UserPlus size={18} />} label="My Crushes" />
+                    <NavBtn active={currentPage === 'matches'} onClick={() => handleNavClick('matches')} icon={<Heart size={18} fill={currentPage === 'matches' ? 'currentColor' : 'none'} />} label="Matches" />
                     <NavBtn active={currentPage === 'profile'} onClick={() => handleNavClick('profile')} icon={<User size={18} />} label="Settings" />
                 </nav>
 
@@ -613,7 +643,7 @@ function DashboardPage({ user, token, setCurrentPage, currentPage }) {
 
             <main className="dashboard-content fade-in">
                 {currentPage === 'dashboard' && <HomePage user={user} token={token} />}
-                {currentPage === 'search' && <SearchPage token={token} />}
+                {currentPage === 'search' && <SearchPage token={token} showNotification={showNotification} />}
                 {currentPage === 'crushes' && <CrushesPage token={token} />}
                 {currentPage === 'matches' && <MatchesPage token={token} />}
                 {currentPage === 'profile' && <ProfilePage user={user} token={token} />}
@@ -713,7 +743,7 @@ function StatCard({ icon, label, value, color }) {
 // SEARCH PAGE
 // ============================================================================
 
-function SearchPage({ token }) {
+function SearchPage({ token, showNotification }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -773,7 +803,7 @@ function SearchPage({ token }) {
 
             <div className="items-grid">
                 {searchResults.map(user => (
-                    <UserCard key={user.id} user={user} token={token} />
+                    <UserCard key={user.id} user={user} token={token} showNotification={showNotification} />
                 ))}
             </div>
         </div>
@@ -1007,7 +1037,7 @@ function ProfilePage({ user, token }) {
 // SHARED CARDS & COMPONENTS
 // ============================================================================
 
-function UserCard({ user, token }) {
+function UserCard({ user, token, showNotification }) {
     const [status, setStatus] = useState(user.crush_status); // 'not_crushed', 'declared', 'mutual'
     const [loading, setLoading] = useState(false);
 
@@ -1020,16 +1050,42 @@ function UserCard({ user, token }) {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ crush_user_id: user.id })
+                body: JSON.stringify({ crush_username: user.username })
             });
             const result = await res.json();
+            console.log('Crush declaration response:', result);
+            
             if (result.success) {
-                setStatus(result.status); // 'declared' or 'mutual'
+                const crushStatus = result.crush?.crush_status || 'pending';
+                setStatus(crushStatus === 'mutual' ? 'mutual' : 'declared');
+                
+                let message = result.message || 'Crush declared!';
+                let notificationType = 'info';
+                
+                // Use crush_status from backend to determine message
+                if (crushStatus === 'mutual') {
+                    message = `🎉 It's a mutual match with ${user.display_name}!`;
+                    notificationType = 'success';
+                } else if (crushStatus === 'already_matched') {
+                    message = `${user.display_name} is already committed to someone else! 💔`;
+                    notificationType = 'error';
+                } else if (crushStatus === 'crushing_on_someone_else') {
+                    message = `${user.display_name} has a crush on someone else. 😢`;
+                    notificationType = 'error';
+                } else if (crushStatus === 'no_crush_declared') {
+                    message = `${user.display_name} hasn't declared a crush yet. 💌`;
+                    notificationType = 'info';
+                } else {
+                    message = `💌 Crush declared! Waiting for their response...`;
+                }
+                
+                showNotification(message, notificationType);
             } else {
-                alert(result.error);
+                showNotification(result.error || 'Failed to declare crush', 'error');
             }
-        } catch {
-            alert('Connection error');
+        } catch (err) {
+            console.error('Declare error:', err);
+            showNotification('Connection error', 'error');
         } finally {
             setLoading(false);
         }
@@ -1059,15 +1115,18 @@ function UserCard({ user, token }) {
 }
 
 function CrushCard({ crush }) {
+    const isMutual = crush.crush_status === 'mutual';
     return (
         <div className="crush-card">
-            <img src={crush.crush_profile_photo_url || `https://api.dicebear.com/6.x/initials/svg?seed=${crush.crush_username}`} alt={crush.crush_display_name} className="card-image" />
+            <img src={crush.profile_photo_url || `https://api.dicebear.com/6.x/initials/svg?seed=${crush.crush_username}`} alt={crush.crush_display_name} className="card-image" />
             <div className="card-content">
                 <h3>{crush.crush_display_name}</h3>
                 <p>@{crush.crush_username}</p>
                 <div className="card-footer">
-                    <span className="badge pending">Pending Match</span>
-                    <small style={{color: 'var(--text-muted)'}}>Declared on {new Date(crush.created_at).toLocaleDateString()}</small>
+                    <span className={`badge ${isMutual ? 'mutual' : 'pending'}`}>
+                        {isMutual ? 'Matched!' : 'Pending Match'}
+                    </span>
+                    <small style={{color: 'var(--text-muted)'}}>Declared on {new Date(crush.declared_at).toLocaleDateString()}</small>
                 </div>
             </div>
         </div>
