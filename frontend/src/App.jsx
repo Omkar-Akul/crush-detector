@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import './index.css';
 import './App.css';
+import InstallBanner from './InstallBanner';
 import './ChatStyles.css';
 import { Heart, LogOut, User, ShieldCheck, Mail, Lock, UserPlus, LogIn, ChevronRight, CheckCircle, Clock, Trash2, ShieldAlert, Menu, X, Search, MessageCircle } from 'lucide-react';
 import ChatModal from './ChatModal';
