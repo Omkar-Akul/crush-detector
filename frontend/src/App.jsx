@@ -1,10 +1,11 @@
 /* eslint-disable react-hooks/exhaustive-deps, no-unused-vars */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './index.css';
 import './App.css';
 import InstallBanner from './InstallBanner';
 import './ChatStyles.css';
-import { Heart, LogOut, User, ShieldCheck, Mail, Lock, UserPlus, LogIn, ChevronRight, CheckCircle, Clock, Trash2, ShieldAlert, Menu, X, Search, MessageCircle } from 'lucide-react';
+import { Heart, LogOut, User, ShieldCheck, Mail, Lock, UserPlus, LogIn, ChevronRight, CheckCircle, Clock, Trash2, ShieldAlert, Menu, X, Search, MessageCircle, Send } from 'lucide-react';
+import { io } from 'socket.io-client';
 import ChatModal from './ChatModal';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
@@ -581,6 +582,11 @@ function DashboardPage({ user, token, setCurrentPage, currentPage, showNotificat
         setIsMobileMenuOpen(false);
     };
 
+    const handleVerificationSuccess = () => {
+        setShowReapplyModal(false);
+        showNotification('Verification submitted! We will review it shortly.', 'success');
+    };
+
     return (
         <div className="dashboard-layout">
             {showReapplyModal && (
@@ -588,10 +594,7 @@ function DashboardPage({ user, token, setCurrentPage, currentPage, showNotificat
                     token={token} 
                     isInitial={!user.verification_status}
                     onClose={() => setShowReapplyModal(false)} 
-                    onSuccess={() => {
-                        setShowReapplyModal(false);
-                        window.location.reload();
-                    }} 
+                    onSuccess={handleVerificationSuccess} 
                 />
             )}
 
@@ -615,6 +618,7 @@ function DashboardPage({ user, token, setCurrentPage, currentPage, showNotificat
                     <NavBtn active={currentPage === 'search'} onClick={() => handleNavClick('search')} icon={<Search size={18} />} label="Find People" />
                     <NavBtn active={currentPage === 'crushes'} onClick={() => handleNavClick('crushes')} icon={<UserPlus size={18} />} label="My Crushes" />
                     <NavBtn active={currentPage === 'matches'} onClick={() => handleNavClick('matches')} icon={<Heart size={18} fill={currentPage === 'matches' ? 'currentColor' : 'none'} />} label="Matches" />
+                    <NavBtn active={currentPage === 'chat'} onClick={() => handleNavClick('chat')} icon={<MessageCircle size={18} />} label="Chat" />
                     <NavBtn active={currentPage === 'profile'} onClick={() => handleNavClick('profile')} icon={<User size={18} />} label="Settings" />
                 </nav>
 
@@ -650,6 +654,7 @@ function DashboardPage({ user, token, setCurrentPage, currentPage, showNotificat
                 {currentPage === 'search' && <SearchPage token={token} showNotification={showNotification} />}
                 {currentPage === 'crushes' && <CrushesPage token={token} />}
                 {currentPage === 'matches' && <MatchesPage token={token} currentUser={user} />}
+                {currentPage === 'chat' && <ChatPage token={token} currentUser={user} />}
                 {currentPage === 'profile' && <ProfilePage user={user} token={token} />}
             </main>
         </div>
@@ -878,7 +883,6 @@ function CrushesPage({ token }) {
 function MatchesPage({ token, currentUser }) {
     const [matches, setMatches] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [selectedMatch, setSelectedMatch] = useState(null);
 
     useEffect(() => {
         fetchMatches();
@@ -913,7 +917,7 @@ function MatchesPage({ token, currentUser }) {
             ) : matches.length > 0 ? (
                 <div className="items-grid">
                     {matches.map(match => (
-                        <MatchCard key={match.id} match={match} onChatClick={() => setSelectedMatch(match)} />
+                        <MatchCard key={match.id} match={match} />
                     ))}
                 </div>
             ) : (
@@ -923,15 +927,399 @@ function MatchesPage({ token, currentUser }) {
                     submessage="Keep exploring and declaring crushes!"
                 />
             )}
+        </div>
+    );
+}
 
-            {selectedMatch && (
-                <ChatModal 
-                    match={selectedMatch} 
-                    token={token} 
+// ============================================================================
+// CHAT PAGE - SNAPCHAT STYLE
+// ============================================================================
+
+function ChatPage({ token, currentUser }) {
+    const [matches, setMatches] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [selectedMatch, setSelectedMatch] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+
+    useEffect(() => {
+        fetchMatches();
+    }, []);
+
+    const fetchMatches = async () => {
+        try {
+            const response = await fetch(
+                `${API_URL}/api/matches?status=matched`,
+                { headers: { 'Authorization': `Bearer ${token}` } }
+            );
+            const data = await response.json();
+            if (data.success) {
+                setMatches(data.matches);
+            }
+        } catch (error) {
+            console.error('Error fetching matches:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const filteredMatches = matches.filter(match => {
+        const name = (match.user_1_id === currentUser.id 
+            ? (match.user_2_display_name || 'Unknown') 
+            : (match.user_1_display_name || 'Unknown')).toLowerCase();
+        return name.includes(searchQuery.toLowerCase());
+    });
+
+    if (loading) {
+        return (
+            <div className="page chat-page">
+                <div className="loading-screen"><Clock className="loading-heart" /></div>
+            </div>
+        );
+    }
+
+    if (matches.length === 0) {
+        return (
+            <div className="page chat-page">
+                <div className="page-header">
+                    <h2>💬 Chats</h2>
+                </div>
+                <EmptyState 
+                    icon={<MessageCircle size={30} />}
+                    message="No matches to chat with yet"
+                    submessage="Find matches in the Matches tab to start chatting!"
+                />
+            </div>
+        );
+    }
+
+    // If on mobile and a match is selected, show full screen chat
+    if (selectedMatch) {
+        return (
+            <ChatWindow
+                match={selectedMatch}
+                token={token}
+                userId={currentUser.id}
+                onBack={() => setSelectedMatch(null)}
+                isMobile={true}
+            />
+        );
+    }
+
+    return (
+        <div className="chat-page-container">
+            {/* Conversations List */}
+            <div className="chat-sidebar">
+                <div className="chat-sidebar-header">
+                    <h2>💬 Chats</h2>
+                    <input 
+                        type="text" 
+                        placeholder="Search..." 
+                        className="chat-search"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
+
+                <div className="conversations-list">
+                    {filteredMatches.map((match, idx) => {
+                        const otherUserName = match.display_name || match.username || 'Unknown';
+                        const otherUserPhoto = match.profile_photo_url;
+                        const colors = ['#FF6B9D', '#C06C84', '#6C5B7B', '#355C7D'];
+                        const bgColor = colors[idx % colors.length];
+
+                        return (
+                            <div 
+                                key={match.id}
+                                className="conversation-item"
+                                onClick={() => setSelectedMatch(match)}
+                                style={{'--accent-color': bgColor}}
+                            >
+                                <div className="conversation-avatar-wrapper" style={{backgroundColor: bgColor}}>
+                                    <img 
+                                        src={otherUserPhoto || `https://api.dicebear.com/6.x/initials/svg?seed=${otherUserName}`} 
+                                        alt={otherUserName}
+                                        className="conversation-avatar"
+                                    />
+                                </div>
+                                <div className="conversation-info">
+                                    <h3>{otherUserName}</h3>
+                                    <p className="last-message">💕 Your match</p>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Chat Window - Desktop Only */}
+            {filteredMatches.length > 0 && (
+                <ChatWindow
+                    match={filteredMatches[0]}
+                    token={token}
                     userId={currentUser.id}
-                    onClose={() => setSelectedMatch(null)} 
+                    onBack={() => setSelectedMatch(null)}
+                    isMobile={false}
                 />
             )}
+        </div>
+    );
+}
+
+// ============================================================================
+// CHAT WINDOW COMPONENT
+// ============================================================================
+
+function ChatWindow({ match, token, userId, onBack, isMobile }) {
+    const [messages, setMessages] = useState([]);
+    const [inputText, setInputText] = useState('');
+    const [isConnected, setIsConnected] = useState(false);
+    const [loading, setLoading] = useState(true);
+    
+    // Daily Question State
+    const [dailyQuestion, setDailyQuestion] = useState(null);
+    const [questionStatus, setQuestionStatus] = useState(null);
+    const [answerInput, setAnswerInput] = useState('');
+    const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
+    const [isGameExpanded, setIsGameExpanded] = useState(false);
+
+    const messagesEndRef = useRef(null);
+    const socketRef = useRef(null);
+
+    const otherUserId = match.other_user_id;
+    const otherUserName = match.display_name || match.username || 'Unknown';
+    const otherUserPhoto = match.profile_photo_url;
+
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages]);
+
+    useEffect(() => {
+        const fetchDailyQuestion = async () => {
+            try {
+                const response = await fetch(`${API_URL}/api/games/daily-question/${match.id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    setDailyQuestion(data.question);
+                    setQuestionStatus(data.status);
+                    if (!data.status.myAnswer) {
+                        setIsGameExpanded(true);
+                    }
+                }
+            } catch (error) {
+                console.error("Failed to load daily question:", error);
+            }
+        };
+
+        const fetchHistory = async () => {
+            try {
+                const response = await fetch(`${API_URL}/api/matches/${match.id}/messages`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    setMessages(data.messages);
+                }
+            } catch (error) {
+                console.error("Failed to load chat history:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchHistory();
+        fetchDailyQuestion();
+
+        const socket = io(API_URL, {
+            auth: { token: token },
+            withCredentials: true
+        });
+
+        socketRef.current = socket;
+
+        socket.on('connect', () => {
+            setIsConnected(true);
+            socket.emit('join_match', match.id);
+        });
+
+        socket.on('receive_message', (newMsg) => {
+            setMessages(prev => [...prev, newMsg]);
+        });
+
+        socket.on('disconnect', () => {
+            setIsConnected(false);
+        });
+
+        return () => {
+            socket.emit('leave_match', match.id);
+            socket.disconnect();
+        };
+    }, [match.id, token]);
+
+    const handleSendMessage = (e) => {
+        e.preventDefault();
+        if (!inputText.trim()) return;
+
+        socketRef.current.emit('send_message', {
+            matchId: match.id,
+            receiverId: otherUserId,
+            messageText: inputText.trim()
+        });
+
+        setInputText('');
+    };
+
+    const handleAnswerQuestion = async (e, directAnswer = null) => {
+        if (e && e.preventDefault) e.preventDefault();
+        const finalAnswer = directAnswer || answerInput;
+        if (!finalAnswer.trim() || !dailyQuestion) return;
+
+        setIsSubmittingAnswer(true);
+        try {
+            const response = await fetch(`${API_URL}/api/games/daily-question/answer`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    matchId: match.id,
+                    questionId: dailyQuestion.id,
+                    answerText: finalAnswer,
+                    gameType: dailyQuestion.gameType || 'question'
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                setQuestionStatus(prev => ({
+                    ...prev,
+                    myAnswer: finalAnswer,
+                    streak: data.streak,
+                    bothAnswered: prev.partnerHasAnswered
+                }));
+                setAnswerInput('');
+            }
+        } catch (error) {
+            console.error("Failed to submit answer:", error);
+        } finally {
+            setIsSubmittingAnswer(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className={`chat-window ${isMobile ? 'mobile-fullscreen' : ''}`}>
+                <div className="chat-header">
+                    {isMobile && <button className="back-btn" onClick={onBack}><ChevronRight size={20} style={{transform: 'rotate(180deg)'}} /></button>}
+                    <div className="chat-header-info">
+                        <img src={otherUserPhoto || `https://api.dicebear.com/6.x/initials/svg?seed=${otherUserName}`} alt={otherUserName} className="chat-header-avatar" />
+                        <div>
+                            <h2>{otherUserName}</h2>
+                            <p className="connection-status">{isConnected ? '🟢 Online' : '🔴 Offline'}</p>
+                        </div>
+                    </div>
+                </div>
+                <div className="loading-screen"><Clock className="loading-heart" /></div>
+            </div>
+        );
+    }
+
+    return (
+        <div className={`chat-window ${isMobile ? 'mobile-fullscreen' : ''}`}>
+            <div className="chat-header">
+                {isMobile && <button className="back-btn" onClick={onBack}><ChevronRight size={20} style={{transform: 'rotate(180deg)'}} /></button>}
+                <div className="chat-header-info">
+                    <img src={otherUserPhoto || `https://api.dicebear.com/6.x/initials/svg?seed=${otherUserName}`} alt={otherUserName} className="chat-header-avatar" />
+                    <div>
+                        <h2>{otherUserName}</h2>
+                        <p className="connection-status">{isConnected ? '🟢 Online' : '🔴 Offline'}</p>
+                    </div>
+                </div>
+                {questionStatus && questionStatus.streak > 0 && (
+                    <div className="streak-badge" title={`Daily Couple Streak: ${questionStatus.streak}`}>
+                        <span>🔥 {questionStatus.streak}</span>
+                    </div>
+                )}
+            </div>
+
+            {dailyQuestion && questionStatus && (
+                <div className="daily-game-banner">
+                    <div className="daily-game-header" onClick={() => setIsGameExpanded(!isGameExpanded)}>
+                        <h4>🎮 Daily Question 🎮</h4>
+                        <span>{isGameExpanded ? '▲' : '▼'}</span>
+                    </div>
+                    {isGameExpanded && (
+                        <div className="daily-game-content">
+                            <p className="daily-question-text">"{dailyQuestion.text}"</p>
+                            
+                            {!questionStatus.myAnswer ? (
+                                <form onSubmit={handleAnswerQuestion} className="daily-answer-form">
+                                    <input 
+                                        type="text" 
+                                        placeholder="Your answer..." 
+                                        value={answerInput}
+                                        onChange={(e) => setAnswerInput(e.target.value)}
+                                        maxLength={200}
+                                    />
+                                    <button type="submit" disabled={isSubmittingAnswer || !answerInput.trim()}>
+                                        Submit
+                                    </button>
+                                </form>
+                            ) : (
+                                <div className="daily-answers">
+                                    <div className="answer-block my-answer">
+                                        <strong>You:</strong> {questionStatus.myAnswer}
+                                    </div>
+                                    <div className="answer-block partner-answer">
+                                        <strong>{otherUserName}:</strong> 
+                                        {questionStatus.bothAnswered 
+                                            ? ` ${questionStatus.partnerAnswer || 'Waiting...'}`
+                                            : (questionStatus.partnerHasAnswered ? " 🔒 (Answered!)" : " ⏳ (Waiting...)")
+                                        }
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            <div className="messages-container">
+                {messages.length === 0 ? (
+                    <div className="empty-chat">
+                        <Heart size={48} style={{color: 'var(--primary)', opacity: 0.3}} />
+                        <p>Start the conversation! 💕</p>
+                    </div>
+                ) : (
+                    messages.map((msg, idx) => (
+                        <div key={idx} className={`message ${msg.sender_id === userId ? 'sent' : 'received'}`}>
+                            <div className="message-bubble">
+                                {msg.message_text}
+                            </div>
+                        </div>
+                    ))
+                )}
+                <div ref={messagesEndRef} />
+            </div>
+
+            <form onSubmit={handleSendMessage} className="message-input-form">
+                <input
+                    type="text"
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    placeholder="Say something..."
+                    className="message-input"
+                />
+                <button type="submit" disabled={!inputText.trim()} className="send-btn">
+                    <Send size={20} />
+                </button>
+            </form>
         </div>
     );
 }
@@ -947,6 +1335,8 @@ function ProfilePage({ user, token }) {
         bio: user.bio || '',
         profile_photo_url: user.profile_photo_url || ''
     });
+    const [profilePhoto, setProfilePhoto] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleChange = (e) => {
         setFormData({
@@ -955,25 +1345,63 @@ function ProfilePage({ user, token }) {
         });
     };
 
+    const handlePhotoChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setProfilePhoto(file);
+        }
+    };
+
     const handleSave = async () => {
+        setIsLoading(true);
         try {
+            if (profilePhoto) {
+                // If a new photo was selected, upload it
+                const photoFormData = new FormData();
+                photoFormData.append('profile_photo', profilePhoto);
+                
+                const photoRes = await fetch(`${API_URL}/api/users/profile-photo`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: photoFormData
+                });
+
+                const photoData = await photoRes.json();
+                if (photoData.success) {
+                    formData.profile_photo_url = photoData.photo_url;
+                } else {
+                    alert('Error uploading photo: ' + (photoData.error || 'Unknown error'));
+                    setIsLoading(false);
+                    return;
+                }
+            }
+
+            // Update the rest of the profile
             const response = await fetch(`${API_URL}/api/users/profile`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify(formData)
+                body: JSON.stringify({
+                    display_name: formData.display_name,
+                    bio: formData.bio,
+                    profile_photo_url: formData.profile_photo_url
+                })
             });
 
             const data = await response.json();
             if (data.success) {
                 setIsEditing(false);
+                setProfilePhoto(null);
                 alert('Profile updated successfully!');
-                // Note: In a real app, you'd update the user state globally
+            } else {
+                alert('Error updating profile: ' + (data.error || 'Unknown error'));
             }
         } catch (error) {
-            alert('Error updating profile');
+            alert('Error updating profile: ' + error.message);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -985,7 +1413,7 @@ function ProfilePage({ user, token }) {
             <div className="profile-card">
                 <div className="profile-header">
                     <img 
-                        src={formData.profile_photo_url || `https://api.dicebear.com/6.x/initials/svg?seed=${user.username}`} 
+                        src={profilePhoto ? URL.createObjectURL(profilePhoto) : (formData.profile_photo_url || `https://api.dicebear.com/6.x/initials/svg?seed=${user.username}`)} 
                         alt="profile" 
                         className="profile-photo"
                     />
@@ -1021,24 +1449,46 @@ function ProfilePage({ user, token }) {
                         />
                     </div>
 
-                    <div className="form-group">
-                        <label>Profile Photo URL</label>
-                        <input
-                            type="url"
-                            name="profile_photo_url"
-                            className="input-premium"
-                            value={formData.profile_photo_url}
-                            onChange={handleChange}
-                            placeholder="https://..."
-                            disabled={!isEditing}
-                        />
-                    </div>
+                    {isEditing && (
+                        <div className="form-group">
+                            <label>Profile Photo</label>
+                            <input 
+                                type="file" 
+                                id="profile-photo-upload"
+                                onChange={handlePhotoChange} 
+                                accept="image/*" 
+                                style={{ display: 'none' }}
+                            />
+                            <label htmlFor="profile-photo-upload" className={`upload-area ${profilePhoto ? 'has-file' : ''}`}>
+                                <div className={`upload-area-content ${profilePhoto ? 'has-file' : ''}`}>
+                                    {profilePhoto ? (
+                                        <>
+                                            <CheckCircle size={32} />
+                                            <p>{profilePhoto.name}</p>
+                                            <span>Click to change photo</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <UserPlus size={32} />
+                                            <p>Click to Take Photo or Upload</p>
+                                            <span>Supports Camera & Gallery</span>
+                                        </>
+                                    )}
+                                </div>
+                            </label>
+                        </div>
+                    )}
                     
                     <div className="profile-actions">
                         {isEditing ? (
                             <>
-                                <button className="btn-premium" style={{background: 'var(--glass-border)'}} onClick={() => setIsEditing(false)}>Cancel</button>
-                                <button className="btn-premium" onClick={handleSave}>Save Changes</button>
+                                <button className="btn-premium" style={{background: 'var(--glass-border)'}} onClick={() => {
+                                    setIsEditing(false);
+                                    setProfilePhoto(null);
+                                }} disabled={isLoading}>Cancel</button>
+                                <button className="btn-premium" onClick={handleSave} disabled={isLoading}>
+                                    {isLoading ? 'Saving...' : 'Save Changes'}
+                                </button>
                             </>
                         ) : (
                             <button className="btn-premium" onClick={() => setIsEditing(true)}>Edit Profile</button>
@@ -1159,9 +1609,11 @@ function MatchCard({ match, onChatClick }) {
                 <p>@{match.username}</p>
                 <div className="card-footer">
                     <span className="badge mutual">Matched!</span>
-                    <button className="btn-chat" onClick={onChatClick} title="Chat" style={{marginLeft: '10px', fontSize: '0.9rem', display: 'flex', gap: '5px', padding: '5px 15px', borderRadius: '20px', width: 'auto', height: 'auto'}}>
-                        <MessageCircle size={18} /> Chat
-                    </button>
+                    {onChatClick && (
+                        <button className="btn-chat" onClick={onChatClick} title="Chat" style={{marginLeft: '10px', fontSize: '0.9rem', display: 'flex', gap: '5px', padding: '5px 15px', borderRadius: '20px', width: 'auto', height: 'auto'}}>
+                            <MessageCircle size={18} /> Chat
+                        </button>
+                    )}
                     <small style={{color: 'var(--text-muted)'}}>Matched on {new Date(match.mutual_at || match.created_at).toLocaleDateString()}</small>
                 </div>
             </div>

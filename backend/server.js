@@ -1051,6 +1051,49 @@ app.put('/api/users/profile', authenticateToken, async (req, res) => {
     }
 });
 
+// POST /api/users/profile-photo
+app.post('/api/users/profile-photo', authenticateToken, upload.single('profile_photo'), async (req, res) => {
+    try {
+        const userId = req.user.userId;
+
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                error: 'No file uploaded'
+            });
+        }
+
+        const photoUrl = req.file.path;
+
+        // Update user profile photo URL in database
+        const result = await db.query(
+            `UPDATE users 
+             SET profile_photo_url = $1
+             WHERE id = $2
+             RETURNING id, profile_photo_url`,
+            [photoUrl, userId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            photo_url: result.rows[0].profile_photo_url
+        });
+    } catch (error) {
+        console.error('Profile photo upload error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Error uploading profile photo'
+        });
+    }
+});
+
 // ============================================================================
 // C. CRUSH DECLARATION ROUTES
 // ============================================================================
