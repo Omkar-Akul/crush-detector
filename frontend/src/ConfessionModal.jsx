@@ -12,10 +12,25 @@ export default function ConfessionModal({ isOpen, onClose, token, API_URL }) {
     const [loadingConfessions, setLoadingConfessions] = useState(true);
 
     useEffect(() => {
+        const fetchConfessions = async () => {
+            setLoadingConfessions(true);
+            try {
+                const response = await fetch(`${API_URL}/api/confessions`);
+                const data = await response.json();
+                if (data.success) {
+                    setConfessions(data.confessions);
+                }
+            } catch (error) {
+                console.error('Error fetching confessions:', error);
+            } finally {
+                setLoadingConfessions(false);
+            }
+        };
+
         if (isOpen && view === 'read') {
             fetchConfessions();
         }
-    }, [isOpen, view]);
+    }, [isOpen, view, API_URL]);
 
     // Reset view when modal is closed/opened
     useEffect(() => {
@@ -26,21 +41,6 @@ export default function ConfessionModal({ isOpen, onClose, token, API_URL }) {
             setContent('');
         }
     }, [isOpen]);
-
-    const fetchConfessions = async () => {
-        setLoadingConfessions(true);
-        try {
-            const response = await fetch(`${API_URL}/api/confessions`);
-            const data = await response.json();
-            if (data.success) {
-                setConfessions(data.confessions);
-            }
-        } catch (error) {
-            console.error('Error fetching confessions:', error);
-        } finally {
-            setLoadingConfessions(false);
-        }
-    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
