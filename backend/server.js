@@ -386,6 +386,42 @@ const sendOTPEmail = async (email, otp, displayName) => {
             )
         `);
 
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS messages (
+                id SERIAL PRIMARY KEY,
+                match_id INT NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+                sender_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                receiver_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                message_text TEXT NOT NULL,
+                is_read BOOLEAN DEFAULT false,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS confessions (
+                id SERIAL PRIMARY KEY,
+                user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                title VARCHAR(200) NOT NULL,
+                content TEXT NOT NULL,
+                is_anonymous BOOLEAN DEFAULT true,
+                status VARCHAR(20) DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Create indexes safely (cannot be used with IF NOT EXISTS in all older PG versions so we try/catch or skip)
+        try {
+            await db.query(`CREATE INDEX IF NOT EXISTS idx_messages_match_id ON messages(match_id)`);
+            await db.query(`CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at)`);
+            await db.query(`CREATE INDEX IF NOT EXISTS idx_confessions_status ON confessions(status)`);
+            await db.query(`CREATE INDEX IF NOT EXISTS idx_confessions_created_at ON confessions(created_at DESC)`);
+            await db.query(`CREATE INDEX IF NOT EXISTS idx_confessions_user_id ON confessions(user_id)`);
+        } catch(e) {
+            // ignore index errors
+        }
+
         // Migration: Ensure new schema fields exist
         try {
             await db.query(`
@@ -1602,6 +1638,94 @@ app.delete(`/api/${ADMIN_PATH}/crushes/:id`, async (req, res) => {
         const crushId = req.params.id;
         await db.query('DELETE FROM crush_declarations WHERE id = $1', [crushId]);
         res.json({ success: true, message: 'Crush deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+
+// ============================================================================
+// ROUTES - CONFESSIONS (ANONYMOUS MESSAGES)
+// ============================================================================
+
+// GET /api/confessions - Get all approved confessions
+app.get('/api/confessions', async (req, res) => {
+    try {
+        const result = await db.query(
+            `SELECT id, title, content, created_at 
+             FROM confessions 
+             WHERE status = 'approved' 
+             ORDER BY created_at DESC LIMIT 50`
+        );
+        res.json({ success: true, confessions: result.rows });
+    } catch (error) {
+        console.error('Fetch confessions error:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch confessions' });
+    }
+});
+
+// POST /api/confessions - Submit a new confession
+app.post('/api/confessions', authenticateToken, async (req, res) => {
+    try {
+        const { title, content } = req.body;
+        const userId = req.user.userId;
+
+        if (!title || !content) {
+            return res.status(400).json({ success: false, error: 'Title and content are required' });
+        }
+
+        const result = await db.query(
+            `INSERT INTO confessions (user_id, title, content, is_anonymous, status)
+             VALUES ($1, $2, $3, true, 'pending')
+             RETURNING id, title, content, created_at`,
+            [userId, title, content]
+        );
+
+        res.json({ success: true, message: 'Confession submitted! Admin will review it soon.', confession: result.rows[0] });
+    } catch (error) {
+        console.error('Confession submission error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/admin/confessions - Admin view all confessions
+app.get(`/api/${ADMIN_PATH}/confessions`, async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT c.id, c.title, c.content, c.is_anonymous, c.status, c.created_at, u.username, u.display_name
+            FROM confessions c
+            LEFT JOIN users u ON c.user_id = u.id
+            ORDER BY c.created_at DESC
+        `);
+        res.json({ success: true, confessions: result.rows });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// POST /api/admin/confessions/:id/approve - Approve confession
+app.post(`/api/${ADMIN_PATH}/confessions/:id/approve`, async (req, res) => {
+    try {
+        const { id } = req.params;
+        await db.query(
+            `UPDATE confessions SET status = 'approved', updated_at = NOW() WHERE id = $1`,
+            [id]
+        );
+        res.json({ success: true, message: 'Confession approved' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// POST /api/admin/confessions/:id/reject - Reject confession
+app.post(`/api/${ADMIN_PATH}/confessions/:id/reject`, async (req, res) => {
+    try {
+        const { id } = req.params;
+        await db.query(
+            `UPDATE confessions SET status = 'rejected', updated_at = NOW() WHERE id = $1`,
+            [id]
+        );
+        res.json({ success: true, message: 'Confession rejected' });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }

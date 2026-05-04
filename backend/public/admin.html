@@ -188,6 +188,7 @@
             <button class="tab-btn" data-target="users">All Users</button>
             <button class="tab-btn" data-target="crushes">All Crushes</button>
             <button class="tab-btn" data-target="matches">Mutual Matches</button>
+            <button class="tab-btn" data-target="confessions">User Confessions</button>
         </div>
 
         <section id="verifications" class="section active">
@@ -249,6 +250,26 @@
                     </thead>
                     <tbody id="matches-table">
                         <tr><td colspan="4" class="empty-state">Loading matches...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="confessions" class="section">
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Content</th>
+                            <th>User</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="confessions-table">
+                        <tr><td colspan="6" class="empty-state">Loading confessions...</td></tr>
                     </tbody>
                 </table>
             </div>

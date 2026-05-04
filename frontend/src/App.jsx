@@ -4,9 +4,10 @@ import './index.css';
 import './App.css';
 import InstallBanner from './InstallBanner';
 import './ChatStyles.css';
-import { Heart, LogOut, User, ShieldCheck, Mail, Lock, UserPlus, LogIn, ChevronRight, CheckCircle, Clock, Trash2, ShieldAlert, Menu, X, Search, MessageCircle, Send } from 'lucide-react';
+import { Heart, LogOut, User, ShieldCheck, Mail, Lock, UserPlus, LogIn, ChevronRight, CheckCircle, Clock, Trash2, ShieldAlert, Menu, X, Search, MessageCircle, Send, MessageSquare } from 'lucide-react';
 import { io } from 'socket.io-client';
 import ChatModal from './ChatModal';
+import ConfessionModal from './ConfessionModal';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
@@ -20,6 +21,7 @@ function App() {
     const [token, setToken] = useState(localStorage.getItem('accessToken'));
     const [appLoading, setAppLoading] = useState(!!localStorage.getItem('accessToken'));
     const [notification, setNotification] = useState(null);
+    const [isConfessionModalOpen, setIsConfessionModalOpen] = useState(false);
 
     const showNotification = (message, type = 'info', duration = 3000) => {
         setNotification({ message, type });
@@ -115,10 +117,17 @@ function App() {
                         setCurrentPage={setCurrentPage}
                         currentPage={currentPage}
                         showNotification={showNotification}
+                        setIsConfessionModalOpen={setIsConfessionModalOpen}
                     />
                 )}
             </main>
             {notification && <Notification message={notification.message} type={notification.type} />}
+            <ConfessionModal 
+                isOpen={isConfessionModalOpen} 
+                onClose={() => setIsConfessionModalOpen(false)} 
+                token={token}
+                API_URL={API_URL}
+            />
             <InstallBanner />
         </div>
     );
@@ -573,7 +582,7 @@ function VerificationModal({ token, onClose, onSuccess, isInitial = false }) {
 // DASHBOARD PAGE
 // ============================================================================
 
-function DashboardPage({ user, token, setCurrentPage, currentPage, showNotification }) {
+function DashboardPage({ user, token, setCurrentPage, currentPage, showNotification, setIsConfessionModalOpen }) {
     const [showReapplyModal, setShowReapplyModal] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -619,6 +628,7 @@ function DashboardPage({ user, token, setCurrentPage, currentPage, showNotificat
                     <NavBtn active={currentPage === 'crushes'} onClick={() => handleNavClick('crushes')} icon={<UserPlus size={18} />} label="My Crushes" />
                     <NavBtn active={currentPage === 'matches'} onClick={() => handleNavClick('matches')} icon={<Heart size={18} fill={currentPage === 'matches' ? 'currentColor' : 'none'} />} label="Matches" />
                     <NavBtn active={currentPage === 'chat'} onClick={() => handleNavClick('chat')} icon={<MessageCircle size={18} />} label="Chat" />
+                    <NavBtn active={false} onClick={() => setIsConfessionModalOpen(true)} icon={<MessageSquare size={18} />} label="Confessions" />
                     <NavBtn active={currentPage === 'profile'} onClick={() => handleNavClick('profile')} icon={<User size={18} />} label="Settings" />
                 </nav>
 

@@ -17,6 +17,7 @@ async function loadData(target) {
     if (target === 'users') fetchUsers();
     if (target === 'crushes') fetchCrushes();
     if (target === 'matches') fetchMatches();
+    if (target === 'confessions') fetchConfessions();
 }
 
 // 1. Verifications
@@ -103,6 +104,51 @@ async function fetchMatches() {
     `).join('');
 }
 
+// 5. Confessions
+async function fetchConfessions() {
+    const table = document.getElementById('confessions-table');
+    const res = await fetch(`/api/${ADMIN_SECRET}/confessions`);
+    const data = await res.json();
+    
+    if (!data.confessions || data.confessions.length === 0) {
+        table.innerHTML = '<tr><td colspan="6" class="empty-state">No confessions yet</td></tr>';
+        return;
+    }
+    
+    table.innerHTML = data.confessions.map(conf => `
+        <tr id="confession-${conf.id}">
+            <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis;">
+                <strong>${conf.title}</strong>
+            </td>
+            <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; color: var(--text-dim); font-size: 13px;">
+                ${conf.content.substring(0, 100)}...
+            </td>
+            <td>
+                <div>${conf.is_anonymous ? '🕵️ Anonymous' : conf.display_name}</div>
+                <div style="font-size: 12px; color: var(--text-dim);">@${conf.username || 'unknown'}</div>
+            </td>
+            <td>
+                <span style="padding: 4px 10px; border-radius: 6px; font-size: 12px; 
+                    ${conf.status === 'approved' ? 'background: rgba(0, 200, 83, 0.1); color: #00c853;' : 
+                      conf.status === 'rejected' ? 'background: rgba(255, 61, 0, 0.1); color: #ff3d00;' : 
+                      'background: rgba(255, 165, 0, 0.1); color: #ffa500;'}"
+                >
+                    ${conf.status.toUpperCase()}
+                </span>
+            </td>
+            <td>${new Date(conf.created_at).toLocaleDateString()}</td>
+            <td>
+                ${conf.status === 'pending' ? `
+                    <button class="btn btn-approve action-btn" data-action="approve-confession" data-id="${conf.id}" style="margin-right: 5px;">Approve</button>
+                    <button class="btn btn-reject action-btn" data-action="reject-confession" data-id="${conf.id}">Reject</button>
+                ` : `
+                    <span style="color: var(--text-dim); font-size: 12px;">${conf.status === 'approved' ? '✅ Approved' : '❌ Rejected'}</span>
+                `}
+            </td>
+        </tr>
+    `).join('');
+}
+
 // Global Event Listener (Event Delegation)
 document.addEventListener('click', async (e) => {
     const target = e.target.closest('.action-btn');
@@ -137,6 +183,18 @@ document.addEventListener('click', async (e) => {
         if (!confirm('Delete this crush declaration?')) return;
         const res = await fetch(`/api/${ADMIN_SECRET}/crushes/${id}`, { method: 'DELETE' });
         if ((await res.json()).success) fetchCrushes();
+    }
+
+    if (action === 'approve-confession') {
+        if (!confirm('Approve this confession?')) return;
+        const res = await fetch(`/api/${ADMIN_SECRET}/confessions/${id}/approve`, { method: 'POST' });
+        if ((await res.json()).success) fetchConfessions();
+    }
+
+    if (action === 'reject-confession') {
+        if (!confirm('Reject this confession?')) return;
+        const res = await fetch(`/api/${ADMIN_SECRET}/confessions/${id}/reject`, { method: 'POST' });
+        if ((await res.json()).success) fetchConfessions();
     }
 });
 
