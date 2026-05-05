@@ -602,25 +602,43 @@ app.get('/api/health', (req, res) => {
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 
 // Cloudinary Configuration
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET
-});
+let storage;
 
-const storage = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: {
-        folder: 'crush_detector_ids',
-        allowed_formats: ['jpg', 'png', 'jpeg'],
-        transformation: [{ width: 1000, height: 1000, crop: 'limit' }]
-    }
-});
+if (process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_KEY !== 'your_cloudinary_api_key') {
+    cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET
+    });
+
+    storage = new CloudinaryStorage({
+        cloudinary: cloudinary,
+        params: {
+            folder: 'crush_detector_ids',
+            allowed_formats: ['jpg', 'png', 'jpeg'],
+            transformation: [{ width: 1000, height: 1000, crop: 'limit' }]
+        }
+    });
+} else {
+    storage = multer.diskStorage({
+        destination: function (req, file, cb) {
+            const dir = path.join(__dirname, 'uploads');
+            if (!fs.existsSync(dir)){
+                fs.mkdirSync(dir);
+            }
+            cb(null, dir);
+        },
+        filename: function (req, file, cb) {
+            cb(null, Date.now() + '-' + file.originalname);
+        }
+    });
+}
 
 const upload = multer({ 
     storage: storage,
@@ -629,6 +647,7 @@ const upload = multer({
 
 // Serve static public files
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Generate JWT token
 const generateAccessToken = (user) => {
@@ -657,7 +676,7 @@ const generateRefreshToken = (user) => {
 app.post('/api/auth/register', upload.single('student_id_photo'), authLimiter, ipRegistrationLimiter, async (req, res) => {
     try {
         const { username, email, password, display_name, date_of_birth, verification_type, social_link, college_name } = req.body;
-        const student_id_url = req.file ? req.file.path : null;
+        const student_id_url = req.file ? (req.file.path.startsWith('http') ? req.file.path : '/uploads/' + req.file.filename) : null;
         
         // Validation
         if (!username || !email || !password || !display_name) {
@@ -968,7 +987,7 @@ app.post('/api/users/reapply', authenticateToken, upload.single('student_id_phot
     try {
         const { verification_type, college_name, social_link } = req.body;
         const userId = req.user.userId;
-        const student_id_url = req.file ? req.file.path : null;
+        const student_id_url = req.file ? (req.file.path.startsWith('http') ? req.file.path : '/uploads/' + req.file.filename) : null;
 
         // Update user record
         await db.query(
@@ -1099,7 +1118,7 @@ app.post('/api/users/profile-photo', authenticateToken, upload.single('profile_p
             });
         }
 
-        const photoUrl = req.file.path;
+        const photoUrl = req.file.path.startsWith('http') ? req.file.path : '/uploads/' + req.file.filename;
 
         // Update user profile photo URL in database
         const result = await db.query(
