@@ -1,6 +1,53 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
 
 :root {
+  /* Default light theme variables. OS dark preference and explicit dark overrides are handled below. */
+  --bg-deep: #f5f6fb;
+  --bg-card: rgba(255, 255, 255, 0.92);
+  --primary: #ff3366;
+  --primary-glow: rgba(255, 51, 102, 0.3);
+  --secondary: #7000ff;
+  --text-main: #111827;
+  --text-muted: #6b7280;
+  --glass-border: rgba(0, 0, 0, 0.08);
+
+  --surface: #ffffff;
+  --surface-muted: rgba(249, 250, 252, 0.96);
+  --surface-alt: #f4f5fb;
+  --surface-strong: #e5e7eb;
+
+  --text: var(--text-main);
+  --text-muted-2: var(--text-muted);
+  --modal-bg: #ffffff;
+  --sidebar-bg: #ffffff;
+  --card-bg-solid: #ffffff;
+
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+:root[data-theme="light"] {
+  --bg-deep: #f5f6fb;
+  --bg-card: rgba(255, 255, 255, 0.92);
+  --primary: #ff3366;
+  --primary-glow: rgba(255, 51, 102, 0.3);
+  --secondary: #7000ff;
+  --text-main: #111827;
+  --text-muted: #6b7280;
+  --glass-border: rgba(0, 0, 0, 0.08);
+
+  --surface: #ffffff;
+  --surface-muted: rgba(249, 250, 252, 0.96);
+  --surface-alt: #f4f5fb;
+  --surface-strong: #e5e7eb;
+
+  --text: var(--text-main);
+  --text-muted-2: var(--text-muted);
+  --modal-bg: #ffffff;
+  --sidebar-bg: #ffffff;
+  --card-bg-solid: #ffffff;
+}
+
+:root[data-theme="dark"] {
   --bg-deep: #0a0a0f;
   --bg-card: rgba(255, 255, 255, 0.03);
   --primary: #ff3366;
@@ -9,8 +56,44 @@
   --text-main: #ffffff;
   --text-muted: #a0a0ab;
   --glass-border: rgba(255, 255, 255, 0.08);
-  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  --surface: #0a0a0f;
+  --surface-muted: rgba(255, 255, 255, 0.04);
+  --surface-alt: #15151e;
+  --surface-strong: #252535;
+
+  --text: var(--text-main);
+  --text-muted-2: var(--text-muted);
+  --modal-bg: #11131d;
+  --sidebar-bg: #10111c;
+  --card-bg-solid: rgba(255, 255, 255, 0.03);
 }
+
+/* OS preference dark mode support when there is no saved preference. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg-deep: #0a0a0f;
+    --bg-card: rgba(255, 255, 255, 0.03);
+    --primary: #ff3366;
+    --primary-glow: rgba(255, 51, 102, 0.3);
+    --secondary: #7000ff;
+    --text-main: #ffffff;
+    --text-muted: #a0a0ab;
+    --glass-border: rgba(255, 255, 255, 0.08);
+
+    --surface: #0a0a0f;
+    --surface-muted: rgba(255, 255, 255, 0.04);
+    --surface-alt: #15151e;
+    --surface-strong: #252535;
+
+    --text: var(--text-main);
+    --text-muted-2: var(--text-muted);
+    --modal-bg: #11131d;
+    --sidebar-bg: #10111c;
+    --card-bg-solid: rgba(255, 255, 255, 0.03);
+  }
+}
+
 
 * {
   margin: 0;
@@ -23,11 +106,20 @@ body {
   background-color: var(--bg-deep);
   color: var(--text-main);
   min-height: 100vh;
-  background-image: 
+  background-image:
     radial-gradient(circle at 20% 20%, rgba(112, 0, 255, 0.15) 0%, transparent 40%),
     radial-gradient(circle at 80% 80%, rgba(255, 51, 102, 0.15) 0%, transparent 40%);
   background-attachment: fixed;
+  transition: var(--transition);
 }
+
+/* Improve perceived contrast in dark mode without changing layout. */
+:root[data-theme="dark"] body,
+:root:not([data-theme]) body {
+  color-scheme: dark;
+}
+
+
 
 /* Glassmorphism Card */
 .glass-card {

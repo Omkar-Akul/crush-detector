@@ -36,7 +36,7 @@
     border-bottom: 1px solid var(--glass-border);
     display: flex;
     align-items: center;
-    background: #15151e;
+    background: var(--surface-alt);
 }
 
 .chat-avatar {
@@ -109,7 +109,7 @@
 
 .chat-bubble.received {
     align-self: flex-start;
-    background: #252535;
+    background: var(--surface-strong);
     color: var(--text-main);
     border: 1px solid var(--glass-border);
     border-bottom-left-radius: 4px;
@@ -124,7 +124,7 @@
 
 .chat-input-area {
     padding: 1rem;
-    background: #15151e;
+    background: var(--surface-alt);
     border-top: 1px solid var(--glass-border);
     display: flex;
     gap: 10px;
@@ -135,7 +135,7 @@
     padding: 10px 16px;
     border-radius: 20px;
     border: 1px solid var(--glass-border);
-    background: #252535;
+    background: var(--surface-muted);
     color: var(--text-main);
     outline: none;
 }
@@ -221,7 +221,7 @@
     padding: 10px 15px;
     border-radius: 20px;
     border: 1px solid var(--glass-border);
-    background: #252535;
+    background: var(--surface-muted);
     color: var(--text-main);
     font-size: 14px;
     outline: none;
