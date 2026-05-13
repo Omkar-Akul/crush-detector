@@ -11,6 +11,21 @@ import ConfessionModal from './ConfessionModal';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
+const THEME_STORAGE_KEY = 'theme-preference'; // 'dark' | 'light'
+
+const getInitialTheme = () => {
+    const stored = localStorage.getItem(THEME_STORAGE_KEY);
+    if (stored === 'light' || stored === 'dark') {
+        return stored;
+    }
+
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        return 'dark';
+    }
+
+    return 'light';
+};
+
 // ============================================================================
 // MAIN APP COMPONENT
 // ============================================================================
@@ -22,6 +37,12 @@ function App() {
     const [appLoading, setAppLoading] = useState(!!localStorage.getItem('accessToken'));
     const [notification, setNotification] = useState(null);
     const [isConfessionModalOpen, setIsConfessionModalOpen] = useState(false);
+    const [theme, setTheme] = useState(getInitialTheme); // 'dark' | 'light'
+    const [hasThemeOverride, setHasThemeOverride] = useState(() => {
+        const stored = localStorage.getItem(THEME_STORAGE_KEY);
+        return stored === 'light' || stored === 'dark';
+    });
+
 
     const showNotification = (message, type = 'info', duration = 3000) => {
         setNotification({ message, type });
@@ -30,11 +51,56 @@ function App() {
         }, duration);
     };
 
+    // Theme init: prefer localStorage, otherwise follow OS.
+    useEffect(() => {
+        const stored = localStorage.getItem(THEME_STORAGE_KEY);
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const initial = stored === 'light' || stored === 'dark' ? stored : (prefersDark ? 'dark' : 'light');
+
+        setTheme(initial);
+        setHasThemeOverride(stored === 'light' || stored === 'dark');
+
+        if (stored === 'light' || stored === 'dark') {
+            document.documentElement.setAttribute('data-theme', stored);
+        } else {
+            document.documentElement.removeAttribute('data-theme');
+        }
+    }, []);
+
+    useEffect(() => {
+        if (hasThemeOverride) {
+            document.documentElement.setAttribute('data-theme', theme);
+        } else {
+            document.documentElement.removeAttribute('data-theme');
+        }
+    }, [theme, hasThemeOverride]);
+
+    // Optional: keep in sync with OS changes only when user hasn't overridden.
+    useEffect(() => {
+        const stored = localStorage.getItem(THEME_STORAGE_KEY);
+        if (stored === 'light' || stored === 'dark') return;
+        if (!window.matchMedia) return;
+
+        const mql = window.matchMedia('(prefers-color-scheme: dark)');
+        const handler = () => {
+            const next = mql.matches ? 'dark' : 'light';
+            setTheme(next);
+        };
+
+        if (mql.addEventListener) mql.addEventListener('change', handler);
+        else mql.addListener(handler);
+        return () => {
+            if (mql.removeEventListener) mql.removeEventListener('change', handler);
+            else mql.removeListener(handler);
+        };
+    }, []);
+
     useEffect(() => {
         if (token) {
             fetchCurrentUser();
         }
     }, [token]);
+
 
     const fetchCurrentUser = async () => {
         setAppLoading(true);
@@ -68,6 +134,15 @@ function App() {
         setCurrentPage('login');
     };
 
+    const toggleTheme = () => {
+        const next = theme === 'light' ? 'dark' : 'light';
+        setTheme(next);
+        setHasThemeOverride(true);
+        localStorage.setItem(THEME_STORAGE_KEY, next);
+        document.documentElement.setAttribute('data-theme', next);
+    };
+
+
     return (
         <div className="app">
             <FloatingHearts />
@@ -77,18 +152,27 @@ function App() {
                         <Heart className="primary-color" fill="var(--primary)" size={28} />
                         <h1 className="logo">CrushDetector</h1>
                     </div>
-                    {currentUser && currentUser.is_email_verified && (
+                    {theme && (
                         <div className="user-section">
-                            <span className="welcome-text">
-                                <User size={14} />
-                                {currentUser.display_name}
-                            </span>
-                            <button className="logout-btn" onClick={handleLogout}>
-                                <LogOut size={16} />
-                                <span>Logout</span>
+                            <button
+                                type="button"
+                                className="theme-toggle-btn"
+                                onClick={toggleTheme}
+                                aria-label="Toggle dark mode"
+                                title="Toggle theme"
+                            >
+                                {theme === 'light' ? '🌙' : '☀️'}
                             </button>
+
+                            {currentUser && currentUser.is_email_verified && (
+                                <button className="logout-btn" onClick={handleLogout}>
+                                    <LogOut size={16} />
+                                    <span>Logout</span>
+                                </button>
+                            )}
                         </div>
                     )}
+
                 </div>
             </header>
 
