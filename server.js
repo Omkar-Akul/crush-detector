@@ -161,6 +161,13 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
                 error: 'Password must be at least 8 characters'
             });
         }
+
+        if (username.length > 50 || display_name.length > 100 || email.length > 255) {
+            return res.status(400).json({
+                success: false,
+                error: 'Input fields exceed maximum length limits'
+            });
+        }
         
         // Check if user exists
         const existingUser = await db.query(
@@ -634,12 +641,15 @@ app.get('/api/crushes/search', authenticateToken, async (req, res) => {
         const { q, limit = 10, offset = 0 } = req.query;
         const userId = req.user.userId;
         
-        if (!q || q.trim().length < 2) {
+        if (!q || q.trim().length < 2 || q.length > 100) {
             return res.status(400).json({
                 success: false,
-                error: 'Search query must be at least 2 characters'
+                error: 'Search query must be between 2 and 100 characters'
             });
         }
+        
+        const validLimit = Math.min(Math.max(parseInt(limit) || 10, 1), 50);
+        const validOffset = Math.max(parseInt(offset) || 0, 0);
         
         const searchTerm = `%${q.toLowerCase()}%`;
         
@@ -651,7 +661,7 @@ app.get('/api/crushes/search', authenticateToken, async (req, res) => {
              AND u.status = 'active'
              AND u.id != $1
              LIMIT $3 OFFSET $4`,
-            [userId, searchTerm, limit, offset]
+            [userId, searchTerm, validLimit, validOffset]
         );
         
         res.json({
@@ -751,6 +761,9 @@ app.get('/api/matches', authenticateToken, async (req, res) => {
         const userId = req.user.userId;
         const { status = 'all', limit = 10, offset = 0 } = req.query;
         
+        const validLimit = Math.min(Math.max(parseInt(limit) || 10, 1), 50);
+        const validOffset = Math.max(parseInt(offset) || 0, 0);
+        
         let query = `
             SELECT m.id, m.match_status, m.mutual_at, m.created_at,
                    m.user_1_reaction, m.user_2_reaction,
@@ -771,7 +784,7 @@ app.get('/api/matches', authenticateToken, async (req, res) => {
         }
         
         query += ` ORDER BY m.created_at DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
-        params.push(limit, offset);
+        params.push(validLimit, validOffset);
         
         const result = await db.query(query, params);
         
