@@ -1601,6 +1601,7 @@ function ProfilePage({ user, token }) {
 function UserCard({ user, token, showNotification }) {
     const [status, setStatus] = useState(user.crush_status); // 'not_crushed', 'declared', 'mutual'
     const [loading, setLoading] = useState(false);
+    const [showPreview, setShowPreview] = useState(false); // 👈 ADD THIS LINE
 
     const handleDeclare = async () => {
         setLoading(true);

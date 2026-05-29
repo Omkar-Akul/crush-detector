@@ -1154,3 +1154,89 @@ background: var(--bg-card);
         max-width: none;
     }
 }
+
+/* ==========================================
+   PROFILE PREVIEW HOVER MODAL (ISSUE #18)
+   ========================================== */
+.profile-preview-modal {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translate(-50%, -100%);
+    width: 260px;
+    background: rgba(20, 20, 30, 0.98);
+    border: 1px solid #ff007f; /* Standard fall-back tint */
+    border-color: var(--primary, #ff007f);
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6), 0 0 15px rgba(255, 0, 127, 0.25);
+    padding: 1rem;
+    z-index: 100;
+    pointer-events: none; /* Prevents cursor stuttering */
+    animation: previewFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.preview-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 0.5rem;
+}
+
+.preview-avatar {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--primary, #ff007f);
+}
+
+.preview-title h4 {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #fff;
+}
+
+.preview-title p {
+    margin: 0;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.preview-bio {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.85);
+    line-height: 1.4;
+    margin: 0 0 0.75rem 0;
+    font-style: italic;
+}
+
+.preview-badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 20px;
+    font-weight: 600;
+}
+
+.preview-badge.mutual {
+    background: linear-gradient(135deg, #7000ff, #ff007f);
+    color: white;
+}
+
+.preview-badge.declared {
+    background: rgba(255, 0, 127, 0.15);
+    border: 1px solid #ff007f;
+    color: #ff007f;
+}
+
+.preview-badge.status-none {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+@keyframes previewFadeIn {
+    from { opacity: 0; transform: translate(-50%, -95%); }
+    to { opacity: 1; transform: translate(-50%, -100%); }
+}
